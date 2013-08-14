@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<alloy>
+
+<view nodetheme="Martha" edgetheme="Martha">
+
+<projection> <type name="basic/Step"/> </projection>
+
+<defaultnode/>
+
+<defaultedge/>
+
+<node>
+   <type name="Addr"/>
+   <type name="BadDOM"/>
+   <type name="BadServer"/>
+   <type name="Cookie"/>
+   <type name="GoodClient"/>
+   <type name="GoodServer"/>
+   <type name="httpReq"/>
+   <type name="httpReq2"/>
+   <type name="httpResp"/>
+   <type name="Int"/>
+   <type name="Payload"/>
+   <type name="String"/>
+   <type name="univ"/>
+   <type name="basic/Data"/>
+   <type name="basic/Step"/>
+   <type name="seq/Int"/>
+   <type name="basic/SO/Ord"/>
+   <set name="$Integrity_m" type="basic/Module"/>
+   <set name="$Integrity_t" type="basic/Step"/>
+   <set name="First" type="basic/SO/Ord"/>
+   <set name="Next" type="basic/SO/Ord"/>
+   <set name="pre" type="basic/Op"/>
+   <set name="basic/CriticalData" type="basic/Data"/>
+   <set name="basic/GoodData" type="basic/Data"/>
+   <set name="basic/TrustedModule" type="basic/Module"/>
+</node>
+
+<node color="Green">
+   <type name="basic/Module"/>
+</node>
+
+<node color="Red">
+   <set name="basic/BadData" type="basic/Data"/>
+   <set name="basic/UntrustedModule" type="basic/Module"/>
+</node>
+
+<node visible="no" shape="Ellipse">
+   <type name="basic/Op"/>
+</node>
+
+<node visible="yes">
+   <set name="post" type="basic/Op"/>
+</node>
+
+<edge visible="no" attribute="yes">
+   <relation name="addr"> <type name="BadServer"/> <type name="Addr"/> </relation>
+   <relation name="addr"> <type name="GoodServer"/> <type name="Addr"/> </relation>
+   <relation name="args"> <type name="basic/Op"/> <type name="basic/Data"/> </relation>
+   <relation name="creates"> <type name="basic/Module"/> <type name="basic/Data"/> </relation>
+   <relation name="trigger"> <type name="basic/Op"/> <type name="basic/Op"/> </relation>
+</edge>
+
+</view>
+
+</alloy>
