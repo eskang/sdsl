@@ -1,0 +1,34 @@
+digraph g {
+graph[fontname="courier"]
+node[fontname="courier"]
+edge[fontname="courier"]
+BadServer [shape=component];
+httpReq2 [shape=ellipse];
+BadServer -> httpReq2 [dir=none,color=red];
+httpResp [shape=ellipse];
+BadServer -> httpResp;
+Client_GoodClient [shape=component];
+sendResp [shape=ellipse];
+Client_GoodClient -> sendResp [dir=none,color=red];
+reqAuth [shape=ellipse];
+Client_GoodClient -> reqAuth;
+reqRes [shape=ellipse];
+Client_GoodClient -> reqRes;
+reqAccessToken [shape=ellipse];
+Client_GoodClient -> reqAccessToken;
+AuthorizationServer_GoodServer [shape=component];
+reqAccessToken [shape=ellipse];
+AuthorizationServer_GoodServer -> reqAccessToken [dir=none,color=red];
+sendResp [shape=ellipse];
+AuthorizationServer_GoodServer -> sendResp;
+ResourceOwner_GoodServer [shape=component];
+reqAuth [shape=ellipse];
+ResourceOwner_GoodServer -> reqAuth [dir=none,color=red];
+sendResp [shape=ellipse];
+ResourceOwner_GoodServer -> sendResp;
+ResourceServer_GoodServer [shape=component];
+reqRes [shape=ellipse];
+ResourceServer_GoodServer -> reqRes [dir=none,color=red];
+sendResp [shape=ellipse];
+ResourceServer_GoodServer -> sendResp;
+}
