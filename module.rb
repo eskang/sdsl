@@ -8,85 +8,74 @@ require 'myutils.rb'
 Mod = Struct.new(:name, :exports, :invokes, :constraints, 
                  :stores, :creates,
                  :extends, :isAbstract)
-Op = Struct.new(:name, :constraints)
+Op = Struct.new(:name, :constraints, :parent, :child)
 
 class Mod
-  def to_alloy
+
+  def to_alloy(ctx)
     # (s1, s2) in decls => sig s1 extends s2
-    decls = {}
-    sigfacts = {}
+    sigfacts = []
     facts = []
-    fields = {}
+    fields = []
     alloyChunk = ""
 
     modn = name.to_s    
     # module declaration
-    decls[modn] = "Module"
-    sigfacts[modn] = []
-    fields[modn] = stores
+    fields = stores
 
     exports.each do |o|
       n = o.name.to_s
-      c = o.constraints[:when].to_alloy
-      decls[n] = "Op"
+      ctx[:op] = n
+      c = o.constraints[:when].to_alloy(ctx)
       # receiver constraint
-      sigfacts[n] = []
-      sigfacts[n] << "receiver in " + modn
       # export constraint
       if not c == UNIT 
-        f = "all o : this.receives[" + n + "] | " + c
-        sigfacts[modn] << f
-      end
-      # op arguments
-      fields[n] = []
-      args = []
-      o.constraints[:args].each do |arg|
-        if not arg.is_a? Rel
-          arg = Item.new(arg, :Data)
-        end   
-        fields[n] << arg
-        args << arg.to_s
-      end
-      if not args.empty?
-        sigfacts[n] << "args = " + args.join(" + ")
+        f = "all o : this.receives[(" + n + ")] | " + c
+        sigfacts << f
       end
     end
 
+    newInvokes = []
+    invokes.each do |o|
+      n = o.name
+      # replace the invoked op with the set of all replaced ops
+      if not (ctx[n].count == 1 and ctx[n].include? n.to_s)
+        ctx[n].each do |newOpName|           
+          newInvokes << Op.new(newOpName.to_sym, 
+                               :when => o.constraints[:when])
+        end
+      else
+        newInvokes << o
+      end
+    end
+    self.invokes = newInvokes.dup
+    
     invokes.each do |o|
       n = o.name.to_s
-      c1 = o.constraints[:when].to_alloy
-      
+      ctx[:op] = n
+      c1 = o.constraints[:when].to_alloy(ctx)
       if not c1 == UNIT
-        f1 = "all o : this.sends[" + n + "] | " + c1
-        sigfacts[modn] << f1
-      end
-
-      c2 = o.constraints[:sends].to_alloy  
-      if not c2 == UNIT
-        f2 = "all o : this.sends[" + n + "] | " + c2
-        sigfacts[modn] << f2
+        f1 = "all o : this.sends[(" + n + ")] | " + c1
+        sigfacts << f1
       end
     end
 
     # write Alloy expressions
-
     # declarations 
-    decls.each do |k, v| 
-      if k == modn then alloyChunk += "one " end      
-      alloyChunk += wrap("sig " + k + " extends " + v + " {")
-      # fields      
-      fields[k].each do |f|
-        alloyChunk += wrap(f.to_alloy + ",", 1)
+    alloyChunk += wrap("-- module " + modn)
+    alloyChunk += wrap("one sig " + modn + " extends Module {")
+    # fields      
+    fields.each do |f|
+      alloyChunk += wrap(f.to_alloy(ctx) + ",", 1)
+    end
+    alloyChunk += "}"
+    # signature facts
+    if not sigfacts.empty? 
+      alloyChunk += wrap("{")
+      sigfacts.each do |f|
+        alloyChunk += wrap(f, 1)
       end
-      alloyChunk += "}"
-      # signature facts
-      if sigfacts.has_key? k
-        alloyChunk += wrap("{")
-        sigfacts[k].each do |f|
-          alloyChunk += wrap(f, 1)
-        end
-        alloyChunk += wrap("}")
-      end
+      alloyChunk += wrap("}")
     end
 
     # facts
@@ -121,12 +110,8 @@ class ModuleBuilder
 
   def invokes (op, constraints = {})
     if constraints.empty?
-      @invokes << Op.new(op, :when => Unit.new, 
-                         :sends => Unit.new)
+      @invokes << Op.new(op, :when => Unit.new) 
     else 
-      if not constraints.has_key? :sends
-        constraints[:sends] = Unit.new
-      end
       if not constraints.has_key? :when
         constraints[:when] = Unit.new
       end

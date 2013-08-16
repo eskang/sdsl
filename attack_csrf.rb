@@ -12,7 +12,7 @@ goodServer = mod :GoodServer do
           :args => [set(:headers, :Data), item(:dest, :Addr)],
           :when => af("o in protected implies some o.headers & cookies[o]"))
   invokes(:httpResp,
-          :when => af("some o.trigger & httpReq"))
+          :when => af("some o.trigger & (httpReq)"))
 end
 
 badServer = mod :BadServer do
@@ -21,8 +21,7 @@ badServer = mod :BadServer do
   exports(:httpReq2,
           :args => [set(:headers2, :Data), item(:dest2, :Addr)])
   invokes(:httpResp,
-          :when => af("some o.trigger & httpReq2 and " +
-                      "some o.respHeaders & BadDOM"))
+          :when => af("some o.trigger & (httpReq2)"))
 end
 
 goodClient = mod :GoodClient do
@@ -35,7 +34,7 @@ goodClient = mod :GoodClient do
                            "some o.headers & cookies[o.dest]"),
                         disj(
                              af("o.headers & Payload in creates"),
-                             af("some o.trigger & httpResp and " + 
+                             af("some o.trigger & (httpResp) and " + 
                                 "some o.trigger.respHeaders & BadDOM"))
                         ))
   invokes(:httpReq2,

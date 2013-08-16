@@ -10,10 +10,10 @@ mergedView = composeViews(VIEW_OAUTH, VIEW_CSRF,
                             :ResourceOwner => :GoodServer,
                             :ResourceServer => :GoodServer},
                           :Op => {
-#                             :reqAccessToken => :httpReq,
-#                             :sendResp => :httpRes,
-#                             :reqAuth => :httpReq,
-#                             :reqRes => :httpReq
+                            :reqAccessToken => :httpReq,
+                            :sendResp => :httpResp,
+                            :reqAuth => :httpReq,
+                            :reqRes => :httpReq
                           }, 
                           :Data => {}
                         )

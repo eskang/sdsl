@@ -80,7 +80,7 @@ def writeDot mods
   f.close
 end
 
-def dumpAlloy v 
+def dumpAlloy v
   f = File.new(ALLOY_FILE, 'w')
   # headers
   f.puts "open models/basic"
@@ -110,7 +110,7 @@ class Item < Rel
   def to_s
     @name.to_s
   end
-  def to_alloy
+  def to_alloy(ctx=nil)
     @name.to_s + " : lone " + @type.to_s
   end
 end
@@ -127,7 +127,7 @@ class Bag < Rel
   def to_s
     @name.to_s
   end
-  def to_alloy
+  def to_alloy(ctx=nil)
     @name.to_s + " : set " + @type.to_s
   end
 end
@@ -145,7 +145,7 @@ class Map < Rel
   def to_s
     @name.to_s
   end
-  def to_alloy
+  def to_alloy(ctx=nil)
     @name.to_s + " : " + @type1.to_s + " -> " + @type2.to_s  
   end
 end
@@ -167,12 +167,35 @@ class AtomicExpr < Expr
   def to_s
     @e.to_s
   end
-  def to_alloy
-    @e.to_s
+  def to_alloy(ctx=nil)
+    if ctx.has_key? @e
+      ctx[@e].to_a.join(" + ")
+    else 
+      @e.to_s
+    end
   end
 end
 def expr(e)
   AtomicExpr.new(e)
+end
+
+class OpExpr < Expr
+  def initialize(e)
+    @e = e
+  end
+  def to_s
+    @e.to_s
+  end
+  def to_alloy(ctx=nil)
+    if ctx.has_key? @e 
+      "(" + ctx[@e].to_a.join(" + ") + ")"
+    else
+      "(" + @e.to_s + ")"
+    end
+  end
+end
+def op(e)
+  OpExpr.new(e)
 end
 
 class Intersect < Expr
@@ -183,8 +206,8 @@ class Intersect < Expr
   def to_s
     @e1 + " /\ " + @e2
   end
-  def to_alloy
-    enclose(@e1.to_alloy + " & " + @e2.to_alloy)
+  def to_alloy(ctx=nil)
+    enclose(@e1.to_alloy(ctx) + " & " + @e2.to_alloy(ctx))
   end
 end
 def intersect(e1, e2)
@@ -200,8 +223,8 @@ class Nav < Expr
   def to_s
     @map + "[" + @index + "]"
   end
-  def to_alloy
-    @map.to_alloy + "[" + @index.to_alloy + "]"
+  def to_alloy(ctx=nil)
+    @map.to_alloy(ctx) + "[" + @index.to_alloy(ctx) + "]"
   end
 end
 def nav(m, i)
@@ -218,8 +241,10 @@ class Join < Expr
   def to_s
     @rel + "." + @col
   end
-  def to_alloy
-    @rel.to_alloy + "." + @col.to_alloy
+  def to_alloy(ctx=nil)
+    e1 = @rel.to_alloy(ctx)
+    e2 = @col.to_alloy(ctx)
+    e1 + "." + e2
   end
 end
 def join(r, c)
@@ -251,7 +276,12 @@ class AlloyFormula < Formula
   def to_s
     exp
   end
-  def to_alloy
+  def to_alloy(ctx=nil)
+    if not ctx.nil?
+      exp = @exp.gsub(/o\.\b(\w+)\b/) {|c|         
+        p =  c.split('.')[1]
+        "o.((" + ctx[:op] + ") <: " + p + ")"}
+    end
     exp
   end
 end
@@ -266,7 +296,7 @@ class Unit < Formula
   def is_unit?
     true
   end
-  def to_alloy
+  def to_alloy(ctx=nil)
     UNIT
   end
 end
@@ -278,8 +308,8 @@ class Exists < Formula
   def to_s
     "Some(" + e + ")"
   end
-  def to_alloy
-    enclose("some " + @expr.to_alloy)
+  def to_alloy(ctx=nil)
+    enclose("some " + @expr.to_alloy(ctx))
   end
 end
 def exists(e)
@@ -296,9 +326,9 @@ class And < Formula
     "And(" + left + "," + right + ")"
   end
 
-  def to_alloy
-    lformula = left.to_alloy
-    rformula = right.to_alloy
+  def to_alloy(ctx=nil)
+    lformula = left.to_alloy(ctx)
+    rformula = right.to_alloy(ctx)
     if lformula == UNIT or rformula == UNIT
       if lformula = UNIT then expr = rformula end
       if rformula = UNIT then expr = lformula end
@@ -323,9 +353,9 @@ class Or < Formula
     "Or(" + left + "," + right + ")"
   end
 
-  def to_alloy
-    lformula = left.to_alloy
-    rformula = right.to_alloy    
+  def to_alloy(ctx=nil)
+    lformula = left.to_alloy(ctx)
+    rformula = right.to_alloy(ctx)
     if lformula == UNIT or rformula == UNIT
       raise "An invalid OR expression: OR(" + lformula + "," + rformula + ")"
     else      
@@ -347,13 +377,13 @@ class Equals < Formula
     "Equals(" + @left + "," + @right + ")"
   end
 
-  def to_alloy
-    enclose(@left.to_alloy + " = " + @right.to_alloy)
+  def to_alloy(ctx=nil)
+    enclose(@left.to_alloy(ctx) + " = " + @right.to_alloy(ctx))
   end
 end
 
 def triggeredBy(t)
-  if not t.is_a? Expr then t = expr(t) end  
+  if not t.is_a? Expr then t = op(t) end  
   exists(intersect(trig,t))
 end
 
