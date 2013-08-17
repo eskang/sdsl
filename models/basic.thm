@@ -10,30 +10,33 @@
 <defaultedge/>
 
 <node>
-   <type name="Addr"/>
-   <type name="BadDOM"/>
-   <type name="BadServer"/>
-   <type name="Cookie"/>
-   <type name="GoodClient"/>
-   <type name="GoodServer"/>
-   <type name="httpReq"/>
-   <type name="httpReq2"/>
-   <type name="httpResp"/>
+   <type name="Channel"/>
+   <type name="deliver"/>
+   <type name="Eavesdropper"/>
+   <type name="emit"/>
+   <type name="EndpointA"/>
+   <type name="EndpointB"/>
    <type name="Int"/>
-   <type name="Payload"/>
+   <type name="OtherData"/>
+   <type name="probe"/>
+   <type name="Resource"/>
    <type name="String"/>
+   <type name="transmit"/>
    <type name="univ"/>
    <type name="basic/Data"/>
    <type name="basic/Step"/>
+   <type name="crypto/Crypto"/>
+   <type name="crypto/Key"/>
    <type name="seq/Int"/>
    <type name="basic/SO/Ord"/>
-   <set name="$Integrity_m" type="basic/Module"/>
-   <set name="$Integrity_t" type="basic/Step"/>
+   <set name="$Confidentiality_m" type="basic/Module"/>
+   <set name="$Confidentiality_t" type="basic/Step"/>
    <set name="First" type="basic/SO/Ord"/>
    <set name="Next" type="basic/SO/Ord"/>
    <set name="pre" type="basic/Op"/>
    <set name="basic/CriticalData" type="basic/Data"/>
    <set name="basic/GoodData" type="basic/Data"/>
+   <set name="basic/ProtectedModule" type="basic/Module"/>
    <set name="basic/TrustedModule" type="basic/Module"/>
 </node>
 
@@ -46,17 +49,23 @@
    <set name="basic/UntrustedModule" type="basic/Module"/>
 </node>
 
+<node visible="no">
+   <set name="post" type="basic/Op"/>
+</node>
+
 <node visible="no" shape="Ellipse">
    <type name="basic/Op"/>
 </node>
 
 <node visible="yes">
-   <set name="post" type="basic/Op"/>
+   <set name="$RelevantOp" type="basic/Op"/>
 </node>
 
+<edge visible="no">
+   <relation name="enc"> <type name="crypto/Crypto"/> <type name="basic/Data"/> <type name="crypto/Key"/> <type name="basic/Data"/> </relation>
+</edge>
+
 <edge visible="no" attribute="yes">
-   <relation name="addr"> <type name="BadServer"/> <type name="Addr"/> </relation>
-   <relation name="addr"> <type name="GoodServer"/> <type name="Addr"/> </relation>
    <relation name="args"> <type name="basic/Op"/> <type name="basic/Data"/> </relation>
    <relation name="creates"> <type name="basic/Module"/> <type name="basic/Data"/> </relation>
    <relation name="trigger"> <type name="basic/Op"/> <type name="basic/Op"/> </relation>

@@ -1,23 +1,34 @@
 # composition.rb
 #
 require 'oauth.rb'
+require 'onetimepad.rb'
 require 'attack_csrf.rb'
+require 'attack_eavesdropper.rb'
 
-mergedView = composeViews(VIEW_OAUTH, VIEW_CSRF, 
+# mergedView = composeViews(VIEW_OAUTH, VIEW_CSRF, 
+#                           :Module => {
+#                             :Client => :GoodClient,
+#                             :AuthorizationServer => :GoodServer,
+#                             :ResourceOwner => :GoodServer,
+#                             :ResourceServer => :GoodServer},
+#                           :Op => {
+#                             :reqAccessToken => :httpReq,
+#                             :sendResp => :httpResp,
+#                             :reqAuth => :httpReq,
+#                             :reqRes => :httpReq
+#                           }, 
+#                           :Data => {}
+#                         )
+
+mergedView = composeViews(V_ONETIMEPAD, V_EAVESDROPPER, 
                           :Module => {
-                            :Client => :GoodClient,
-                            :AuthorizationServer => :GoodServer,
-                            :ResourceOwner => :GoodServer,
-                            :ResourceServer => :GoodServer},
+                            :Sender => :EndpointA,
+                            :Receiver => :EndpointB},
                           :Op => {
-                            :reqAccessToken => :httpReq,
-                            :sendResp => :httpResp,
-                            :reqAuth => :httpReq,
-                            :reqRes => :httpReq
+                            :send => :deliver
                           }, 
                           :Data => {}
-                        )
-
+                          )
 drawView mergedView
 pp mergedView
 dumpAlloy mergedView

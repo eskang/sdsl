@@ -1,36 +1,31 @@
 digraph g {
-graph[fontname="courier"]
+graph[fontname="courier", splines=true]
 node[fontname="courier"]
 edge[fontname="courier"]
-BadServer [shape=component];
-httpReq2 [shape=ellipse];
-BadServer -> httpReq2 [dir=none,color=red];
-httpResp [shape=ellipse];
-BadServer -> httpResp;
-Client_GoodClient [shape=component];
-sendResp_httpResp [shape=ellipse];
-Client_GoodClient -> sendResp_httpResp [dir=none,color=red];
-reqAuth_httpReq [shape=ellipse];
-Client_GoodClient -> reqAuth_httpReq;
-reqRes_httpReq [shape=ellipse];
-Client_GoodClient -> reqRes_httpReq;
-reqAccessToken_httpReq [shape=ellipse];
-Client_GoodClient -> reqAccessToken_httpReq;
-httpReq2 [shape=ellipse];
-Client_GoodClient -> httpReq2;
-ResourceServer_GoodServer [shape=component];
-reqRes_httpReq [shape=ellipse];
-ResourceServer_GoodServer -> reqRes_httpReq [dir=none,color=red];
-sendResp_httpResp [shape=ellipse];
-ResourceServer_GoodServer -> sendResp_httpResp;
-ResourceOwner_GoodServer [shape=component];
-reqAuth_httpReq [shape=ellipse];
-ResourceOwner_GoodServer -> reqAuth_httpReq [dir=none,color=red];
-sendResp_httpResp [shape=ellipse];
-ResourceOwner_GoodServer -> sendResp_httpResp;
-AuthorizationServer_GoodServer [shape=component];
-reqAccessToken_httpReq [shape=ellipse];
-AuthorizationServer_GoodServer -> reqAccessToken_httpReq [dir=none,color=red];
-sendResp_httpResp [shape=ellipse];
-AuthorizationServer_GoodServer -> sendResp_httpResp;
+Eavesdropper [shape=component];
+emit [shape=ellipse];
+Eavesdropper -> emit [dir=none,color=red];
+probe [shape=ellipse];
+Eavesdropper -> probe;
+Receiver_EndpointB [shape=component];
+send_deliver [shape=ellipse];
+Receiver_EndpointB -> send_deliver [dir=none,color=red];
+transmit [shape=ellipse];
+Receiver_EndpointB -> transmit;
+Sender_EndpointA [shape=component];
+deliver [shape=ellipse];
+Sender_EndpointA -> deliver [dir=none,color=red];
+send [shape=ellipse];
+Sender_EndpointA -> send;
+transmit [shape=ellipse];
+Sender_EndpointA -> transmit;
+Channel [shape=component];
+transmit [shape=ellipse];
+Channel -> transmit [dir=none,color=red];
+probe [shape=ellipse];
+Channel -> probe [dir=none,color=red];
+deliver [shape=ellipse];
+Channel -> deliver;
+emit [shape=ellipse];
+Channel -> emit;
 }

@@ -23,17 +23,25 @@ class View
 
     alloyChunk = ""
     
+    pp "###############################"
+    pp ctx
+    pp "###############################"
+
+    # all exported operations
     allExports = modules.inject([]) {|r, m| r + m.exports}   
+    # all invoked operations
     allInvokes = modules.inject([]) {|r, m| r + m.invokes.map {|i| i.name}}
     allInvokes.each do |i|
       if not ctx.has_key? i then ctx[i] = Set.new([]) end
-      ctx[i].merge( 
-                   allExports.select {|e| (i == e.name or 
-                                           ((not e.parent.nil?) and 
-                                            i == e.parent.name) or 
-                                           ((not e.child.nil?) and 
-                                            i == e.child.name))}.map {|e| e.name.to_s})
+      ctx[i].merge( allExports.select {|e| 
+                      (i == e.name or 
+                       ((not e.parent.nil?) and i == e.parent.name) or 
+                       ((not e.child.nil?) and i == e.child.name))}.map {|e| e.name.to_s})
     end
+
+    pp "******************************"
+    pp ctx
+    pp "******************************"
 
     modules.each do |m|
       modn = m.name.to_s
@@ -118,17 +126,23 @@ class View
     end
 
     # write facts about data creation
-    createFacts = []
-    creators.each do |k, v|
-      createFacts << "creates." + k + " in " + v.join(" + ")
+    dataFacts = []
+    data.each do |d|
+      dn = d.to_s
+      if creators.has_key? dn
+        dataFacts << "creates." + dn + " in " + creators[dn].join(" + ")
+      else 
+        dataFacts << "no creates" + dn
+      end     
     end
-    alloyChunk += writeFacts("dataCreationFacts", createFacts)
+    alloyChunk += writeFacts("dataFacts", dataFacts)
 
     # write data decls
     dataDecl = []
     data.each do |d|
       alloyChunk += wrap("sig " + d.to_s + " extends Data {}")
     end
+    alloyChunk += wrap("sig OtherData extends Data {}")
     
     # write critical data fact
     if not critical.empty?

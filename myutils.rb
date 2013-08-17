@@ -12,6 +12,10 @@ ALLOY_FILE = "out.als"
 FONTNAME = "courier"
 UNIT = "UNIT"
 ALLOY_CMDS = "
+fun RelevantOp : Op -> Step {
+	{o : Op, t : Step | o.post = t and o in SuccessOp}
+}
+
 run SanityCheck {
 	all m : Module |
 		some sender.m & SuccessOp
@@ -62,7 +66,7 @@ end
 def writeDot mods 
   f = File.new(DOT_FILE, 'w')
   f.puts "digraph g {"
-  f.puts 'graph[fontname="' + FONTNAME + '"]'
+  f.puts 'graph[fontname="' + FONTNAME + '", splines=true]'
   f.puts 'node[fontname="' + FONTNAME + '"]'
   f.puts 'edge[fontname="' + FONTNAME + '"]'
   mods.each do |m|
@@ -84,6 +88,7 @@ def dumpAlloy v
   f = File.new(ALLOY_FILE, 'w')
   # headers
   f.puts "open models/basic"
+  f.puts "open models/crypto[Data]"
   f.puts
   f.puts v.to_alloy
   # footers
