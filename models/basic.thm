@@ -11,15 +11,17 @@
 
 <node>
    <type name="Channel"/>
+   <type name="Ciphertext"/>
    <type name="deliver"/>
    <type name="Eavesdropper"/>
    <type name="emit"/>
-   <type name="EndpointA"/>
-   <type name="EndpointB"/>
    <type name="Int"/>
    <type name="OtherData"/>
    <type name="probe"/>
+   <type name="Receiver_EndpointB"/>
    <type name="Resource"/>
+   <type name="send_deliver"/>
+   <type name="Sender_EndpointA"/>
    <type name="String"/>
    <type name="transmit"/>
    <type name="univ"/>
@@ -34,10 +36,12 @@
    <set name="First" type="basic/SO/Ord"/>
    <set name="Next" type="basic/SO/Ord"/>
    <set name="pre" type="basic/Op"/>
-   <set name="basic/CriticalData" type="basic/Data"/>
    <set name="basic/GoodData" type="basic/Data"/>
    <set name="basic/ProtectedModule" type="basic/Module"/>
-   <set name="basic/TrustedModule" type="basic/Module"/>
+</node>
+
+<node color="Blue">
+   <set name="basic/CriticalData" type="basic/Data"/>
 </node>
 
 <node color="Green">
@@ -46,6 +50,13 @@
 
 <node color="Red">
    <set name="basic/BadData" type="basic/Data"/>
+</node>
+
+<node showlabel="no">
+   <set name="basic/TrustedModule" type="basic/Module"/>
+</node>
+
+<node showlabel="no" color="Red">
    <set name="basic/UntrustedModule" type="basic/Module"/>
 </node>
 

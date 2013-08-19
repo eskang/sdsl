@@ -60,23 +60,25 @@ def dotModule m
 end
 
 def dotOp o
-  "#{o.name} [shape=ellipse];"
+  "#{o.name} [shape=rectangle,style=\"rounded\"];"
 end
 
-def writeDot mods 
-  f = File.new(DOT_FILE, 'w')
+def writeDot(mods, dotFile)
+  f = File.new(dotFile, 'w')
   f.puts "digraph g {"
-  f.puts 'graph[fontname="' + FONTNAME + '", splines=true]'
-  f.puts 'node[fontname="' + FONTNAME + '"]'
-  f.puts 'edge[fontname="' + FONTNAME + '"]'
+  f.puts 'graph[fontname="' + FONTNAME + '", splines=true, concentrate=true];'
+  f.puts 'node[fontname="' + FONTNAME + '"];'
+  f.puts 'edge[fontname="' + FONTNAME + '", len=1.0];'
   mods.each do |m|
+    f.puts "subgraph cluster_" + m.name.to_s + " { " 
+    f.puts "style=filled; color=lightgrey;"
     f.puts(dotModule m)
     m.exports.each do |e|
       f.puts(dotOp e)
       f.puts("#{m.name} -> #{e.name} [dir=none,color=red];")
     end
+    f.puts "}"
     m.invokes.each do |i|
-      f.puts(dotOp i)
       f.puts("#{m.name} -> #{i.name};")
     end
   end
@@ -84,8 +86,8 @@ def writeDot mods
   f.close
 end
 
-def dumpAlloy v
-  f = File.new(ALLOY_FILE, 'w')
+def dumpAlloy(v, alloyFile = ALLOY_FILE)
+  f = File.new(alloyFile, 'w')
   # headers
   f.puts "open models/basic"
   f.puts "open models/crypto[Data]"
@@ -97,8 +99,8 @@ def dumpAlloy v
   f.close
 end
 
-def drawView v 
-  writeDot v.modules
+def drawView(v, dotFile=DOT_FILE)
+  writeDot v.modules, dotFile
 end
 
 #########################################
@@ -163,6 +165,9 @@ end
 # Expressions
 
 class Expr
+  def join e
+    Join.new(self, e)
+  end
 end
 
 class AtomicExpr < Expr
@@ -252,20 +257,17 @@ class Join < Expr
     e1 + "." + e2
   end
 end
-def join(r, c)
-  Join.new(r, c)
-end
 
 def arg(arg, op = nil)
   if not op 
-    join(expr(:o), expr(arg))
+    expr(:o).join expr(arg)
   else 
-    join(op, expr(arg))
+    op.join expr(arg)
   end
 end
 
 def trig 
-  join(expr(:o), expr(:trigger))
+  expr(:o).join expr(:trigger)
 end
 
 #########################################

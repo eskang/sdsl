@@ -1,4 +1,4 @@
 #!/bin/bash
 
-dot -Tpng -o out.png out.dot
-open out.png
+fdp -Tpng -o $1.png $1.dot
+open $1.png

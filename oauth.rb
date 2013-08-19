@@ -62,6 +62,9 @@ VIEW_OAUTH = view :OAuth do
   trusted resOwner, client, authServer, resServer
 end
 
+drawView VIEW_OAUTH, "oauth.dot"
+dumpAlloy VIEW_OAUTH, "oauth.als"
+
 # puts resOwner
 # puts client
 # puts authServer

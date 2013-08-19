@@ -23,10 +23,6 @@ class View
 
     alloyChunk = ""
     
-    pp "###############################"
-    pp ctx
-    pp "###############################"
-
     # all exported operations
     allExports = modules.inject([]) {|r, m| r + m.exports}   
     # all invoked operations
@@ -38,10 +34,6 @@ class View
                        ((not e.parent.nil?) and i == e.parent.name) or 
                        ((not e.child.nil?) and i == e.child.name))}.map {|e| e.name.to_s})
     end
-
-    pp "******************************"
-    pp ctx
-    pp "******************************"
 
     modules.each do |m|
       modn = m.name.to_s
@@ -132,7 +124,7 @@ class View
       if creators.has_key? dn
         dataFacts << "creates." + dn + " in " + creators[dn].join(" + ")
       else 
-        dataFacts << "no creates" + dn
+        dataFacts << "no creates." + dn
       end     
     end
     alloyChunk += writeFacts("dataFacts", dataFacts)
@@ -332,7 +324,27 @@ def merge(v1, v2, mapping, opRel)
     end
   end
 
-  View.new(:MergedView, modules, [], v1.data + v2.data, [], ctx)
+  # all exported operations
+  allExports = modules.inject([]) {|r, m| r + m.exports}
+  
+  modules.each do |m|
+    newInvokes = []
+    m.invokes.each do |i|
+      n = i.name
+      c = i.constraints
+      relevantExports =
+        allExports.select {|e| (n == e.name or
+                                ((not e.parent.nil?) and n == e.parent.name) or
+                                ((not e.child.nil?) and n == e.child.name))}
+      relevantExports.each do |e|
+        newInvokes<< Op.new(e.name, c)        
+      end        
+    end
+    m.invokes = newInvokes
+  end
+
+  View.new(:MergedView, modules, [], v1.data + v2.data, 
+           v1.critical + v2.critical, ctx)
 end
 
 def composeViews(v1, v2, refineRel = {})

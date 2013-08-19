@@ -54,6 +54,11 @@ fun sends[m : Module, es : set Op]  : set Op {
 	sender.m & es
 }
 
+-- some helper predicates/functions
+pred triggeredBy[o : Op, t : set Op] {
+	some o.trigger & t
+}
+
 -- propertiess
 sig CriticalData in Data {}
 sig GoodData, BadData in CriticalData {}
@@ -80,5 +85,4 @@ pred Integrity {
 	no m : ProtectedModule, t : Step |
 		some m.accesses.t & BadData
 }
-
 

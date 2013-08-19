@@ -16,7 +16,7 @@ receiver = mod :Receiver do
   creates :Ciphertext
 
   exports(:send,
-          :args => [:data])
+          :args => [:msg])
 end
 
 V_ONETIMEPAD = view :OneTimePad do

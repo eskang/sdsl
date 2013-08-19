@@ -12,7 +12,7 @@ goodServer = mod :GoodServer do
           :args => [set(:headers, :Data), item(:dest, :Addr)],
           :when => af("o in protected implies some o.headers & cookies[o]"))
   invokes(:httpResp,
-          :when => af("some o.trigger & (httpReq)"))
+          :when => af("triggeredBy[o, httpReq]"))
 end
 
 badServer = mod :BadServer do
@@ -21,7 +21,7 @@ badServer = mod :BadServer do
   exports(:httpReq2,
           :args => [set(:headers2, :Data), item(:dest2, :Addr)])
   invokes(:httpResp,
-          :when => af("some o.trigger & (httpReq2)"))
+          :when => af("triggeredBy[o, httpReq2]"))
 end
 
 goodClient = mod :GoodClient do
@@ -34,7 +34,7 @@ goodClient = mod :GoodClient do
                            "some o.headers & cookies[o.dest]"),
                         disj(
                              af("o.headers & Payload in creates"),
-                             af("some o.trigger & (httpResp) and " + 
+                             af("triggeredBy[o, httpResp] and " + 
                                 "some o.trigger.respHeaders & BadDOM"))
                         ))
   invokes(:httpReq2,
@@ -51,6 +51,8 @@ VIEW_CSRF = view :AttackCSRF do
   critical :Payload
 end
 
+drawView VIEW_CSRF, "attack_csrf.dot"
+dumpAlloy VIEW_CSRF, "attack_csrf.als"
 # puts goodServer
 # puts badServer
 # puts goodClient

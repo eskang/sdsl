@@ -1,30 +1,15 @@
 open models/basic
 open models/crypto[Data]
 
--- module Client_GoodClient
-one sig Client_GoodClient extends Module {
-	cookies : Addr -> Cookie,
-	cred : lone Credential,
-}{
-	all o : this.sends[(httpReq2)] | (some cookies[o.((httpReq2) <: dest2)] implies some o.((httpReq2) <: headers2) & cookies[o.((httpReq2) <: dest2)]) and (no o.((httpReq2) <: headers2) & Payload)
-}
-
--- module ResourceOwner_GoodServer
-one sig ResourceOwner_GoodServer extends Module {
+-- module AuthorizationServer_GoodServer
+one sig AuthorizationServer_GoodServer extends Module {
 	cookies : Op -> Cookie,
 	addr : lone Addr,
 	protected : set Op,
-	authGrants : Credential -> AuthGrant,
+	accessTokens : AuthGrant -> AccessToken,
 }{
-	all o : this.receives[(reqAuth_httpReq)] | ((some authGrants[o.cred])) and (o in protected implies some o.((reqAuth_httpReq) <: headers) & cookies[o])
-	all o : this.sends[(sendResp_httpResp)] | (((some (o.trigger & (reqAuth_httpReq)))) and ((authGrants[o.trigger.cred] = o.data))) and (some o.((sendResp_httpResp) <: trigger) & (reqAccessToken_httpReq+reqRes_httpReq+reqAuth_httpReq))
-}
-
--- module BadServer
-one sig BadServer extends Module {
-	addr : lone Addr,
-}{
-	all o : this.sends[(sendResp_httpResp)] | some o.((sendResp_httpResp) <: trigger) & (httpReq2)
+	all o : this.receives[(reqAccessToken_httpReq)] | ((some accessTokens[o.authGrant])) and (o in protected implies some o.((reqAccessToken_httpReq) <: headers) & cookies[o])
+	all o : this.sends[(sendResp_httpResp)] | (((some (o.trigger & (reqAccessToken_httpReq)))) and ((accessTokens[o.trigger.authGrant] = o.data))) and (triggeredBy[o, httpReq])
 }
 
 -- module ResourceServer_GoodServer
@@ -35,18 +20,33 @@ one sig ResourceServer_GoodServer extends Module {
 	resources : AccessToken -> Resource,
 }{
 	all o : this.receives[(reqRes_httpReq)] | ((some resources[o.accessToken])) and (o in protected implies some o.((reqRes_httpReq) <: headers) & cookies[o])
-	all o : this.sends[(sendResp_httpResp)] | (((some (o.trigger & (reqRes_httpReq)))) and ((resources[o.trigger.accessToken] = o.data))) and (some o.((sendResp_httpResp) <: trigger) & (reqAccessToken_httpReq+reqRes_httpReq+reqAuth_httpReq))
+	all o : this.sends[(sendResp_httpResp)] | (((some (o.trigger & (reqRes_httpReq)))) and ((resources[o.trigger.accessToken] = o.data))) and (triggeredBy[o, httpReq])
 }
 
--- module AuthorizationServer_GoodServer
-one sig AuthorizationServer_GoodServer extends Module {
+-- module ResourceOwner_GoodServer
+one sig ResourceOwner_GoodServer extends Module {
 	cookies : Op -> Cookie,
 	addr : lone Addr,
 	protected : set Op,
-	accessTokens : AuthGrant -> AccessToken,
+	authGrants : Credential -> AuthGrant,
 }{
-	all o : this.receives[(reqAccessToken_httpReq)] | ((some accessTokens[o.authGrant])) and (o in protected implies some o.((reqAccessToken_httpReq) <: headers) & cookies[o])
-	all o : this.sends[(sendResp_httpResp)] | (((some (o.trigger & (reqAccessToken_httpReq)))) and ((accessTokens[o.trigger.authGrant] = o.data))) and (some o.((sendResp_httpResp) <: trigger) & (reqAccessToken_httpReq+reqRes_httpReq+reqAuth_httpReq))
+	all o : this.receives[(reqAuth_httpReq)] | ((some authGrants[o.cred])) and (o in protected implies some o.((reqAuth_httpReq) <: headers) & cookies[o])
+	all o : this.sends[(sendResp_httpResp)] | (((some (o.trigger & (reqAuth_httpReq)))) and ((authGrants[o.trigger.cred] = o.data))) and (triggeredBy[o, httpReq])
+}
+
+-- module BadServer
+one sig BadServer extends Module {
+	addr : lone Addr,
+}{
+	all o : this.sends[(sendResp_httpResp)] | triggeredBy[o, httpReq2]
+}
+
+-- module Client_GoodClient
+one sig Client_GoodClient extends Module {
+	cookies : Addr -> Cookie,
+	cred : lone Credential,
+}{
+	all o : this.sends[(httpReq2)] | (some cookies[o.((httpReq2) <: dest2)] implies some o.((httpReq2) <: headers2) & cookies[o.((httpReq2) <: dest2)]) and (no o.((httpReq2) <: headers2) & Payload)
 }
 
 -- operation sendResp_httpResp
@@ -55,7 +55,7 @@ sig sendResp_httpResp extends Op {
 	respHeaders : set Data,
 }{
 	args = data + respHeaders
-	sender in ResourceOwner_GoodServer + BadServer + ResourceServer_GoodServer + AuthorizationServer_GoodServer
+	sender in AuthorizationServer_GoodServer + ResourceServer_GoodServer + ResourceOwner_GoodServer + BadServer
 	receiver in Client_GoodClient
 }
 -- operation reqAccessToken_httpReq
@@ -102,7 +102,7 @@ fact dataFacts {
 	creates.AuthGrant in ResourceOwner_GoodServer
 	creates.AccessToken in AuthorizationServer_GoodServer
 	creates.Resource in ResourceServer_GoodServer
-	creates.Cookie in ResourceOwner_GoodServer + ResourceServer_GoodServer + AuthorizationServer_GoodServer
+	creates.Cookie in AuthorizationServer_GoodServer + ResourceServer_GoodServer + ResourceOwner_GoodServer
 	creates.BadDOM in BadServer
 	no creates.Addr
 	no creates.Payload
