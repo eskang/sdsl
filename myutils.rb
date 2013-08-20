@@ -156,7 +156,7 @@ class Map < Rel
     @name.to_s + " : " + @type1.to_s + " -> " + @type2.to_s  
   end
 end
-def contains(m, i)
+def hasKey(m, i)
   if not m.is_a? Expr then m = expr(m) end
   if not i.is_a? Expr then i = expr(i) end
   exists(nav(m, i))  
@@ -165,12 +165,35 @@ end
 # Expressions
 
 class Expr
-  def join e
-    Join.new(self, e)
+  def join otherExpr
+    Join.new(self, otherExpr)
+  end
+  
+  def contains otherExpr
+    exists(intersect(self, otherExpr))
+  end
+
+  def eq otherExpr
+    Equals.new(self, otherExpr)
   end
 end
 
-class AtomicExpr < Expr
+class AlloyExpr < Expr
+  def initialize(e)
+    @e = e
+  end
+  def to_s
+    @e
+  end
+  def to_alloy(ctx=nil)
+    @e.to_s
+  end
+end
+def ae(e)
+  AlloyExpr.new(e)
+end
+
+class SymbolExpr < Expr
   def initialize(e)
     @e = e
   end
@@ -186,7 +209,7 @@ class AtomicExpr < Expr
   end
 end
 def expr(e)
-  AtomicExpr.new(e)
+  SymbolExpr.new(e)
 end
 
 class OpExpr < Expr
@@ -323,6 +346,21 @@ def exists(e)
   Exists.new(e)
 end 
 
+class Not < Formula
+  def initialize(e)
+    @expr = e
+  end  
+  def to_s
+    "Not(" + e + ")"
+  end
+  def to_alloy(ctx=nil)
+    "not " + enclose(@expr.to_alloy(ctx))
+  end
+end
+def neg(e)
+  Not.new(e)
+end 
+
 class And < Formula
   attr_accessor :left, :right
   def initialize(f1, f2)
@@ -385,15 +423,11 @@ class Equals < Formula
   end
 
   def to_alloy(ctx=nil)
-    enclose(@left.to_alloy(ctx) + " = " + @right.to_alloy(ctx))
+    @left.to_alloy(ctx) + " = " + @right.to_alloy(ctx)
   end
 end
 
 def triggeredBy(t)
   if not t.is_a? Expr then t = op(t) end  
   exists(intersect(trig,t))
-end
-
-def equals(e1, e2)
-  Equals.new(e1, e2)
 end

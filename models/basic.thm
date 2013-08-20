@@ -10,29 +10,25 @@
 <defaultedge/>
 
 <node>
-   <type name="Channel"/>
-   <type name="Ciphertext"/>
-   <type name="deliver"/>
-   <type name="Eavesdropper"/>
-   <type name="emit"/>
+   <type name="Addr"/>
+   <type name="BadServer"/>
+   <type name="Client"/>
+   <type name="GoodServer"/>
+   <type name="httpReq"/>
+   <type name="httpReq2"/>
+   <type name="httpResp"/>
    <type name="Int"/>
    <type name="OtherData"/>
-   <type name="probe"/>
-   <type name="Receiver_EndpointB"/>
-   <type name="Resource"/>
-   <type name="send_deliver"/>
-   <type name="Sender_EndpointA"/>
+   <type name="Payload"/>
    <type name="String"/>
-   <type name="transmit"/>
    <type name="univ"/>
-   <type name="basic/Data"/>
+   <type name="User"/>
+   <type name="visit"/>
    <type name="basic/Step"/>
    <type name="crypto/Crypto"/>
    <type name="crypto/Key"/>
    <type name="seq/Int"/>
    <type name="basic/SO/Ord"/>
-   <set name="$Confidentiality_m" type="basic/Module"/>
-   <set name="$Confidentiality_t" type="basic/Step"/>
    <set name="First" type="basic/SO/Ord"/>
    <set name="Next" type="basic/SO/Ord"/>
    <set name="pre" type="basic/Op"/>
@@ -50,6 +46,10 @@
 
 <node color="Red">
    <set name="basic/BadData" type="basic/Data"/>
+</node>
+
+<node hideunconnected="yes">
+   <type name="basic/Data"/>
 </node>
 
 <node showlabel="no">
@@ -77,9 +77,13 @@
 </edge>
 
 <edge visible="no" attribute="yes">
+   <relation name="addr"> <type name="GoodServer"/> <type name="Addr"/> </relation>
    <relation name="args"> <type name="basic/Op"/> <type name="basic/Data"/> </relation>
    <relation name="creates"> <type name="basic/Module"/> <type name="basic/Data"/> </relation>
+   <relation name="dest"> <type name="visit"/> <type name="basic/Data"/> </relation>
+   <relation name="redirect"> <type name="httpResp"/> <type name="basic/Data"/> </relation>
    <relation name="trigger"> <type name="basic/Op"/> <type name="basic/Op"/> </relation>
+   <relation name="visits"> <type name="User"/> <type name="Addr"/> </relation>
 </edge>
 
 </view>

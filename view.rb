@@ -3,7 +3,8 @@
 
 require 'module.rb'
 
-View = Struct.new(:name, :modules, :trusted, :data, :critical, :ctx)
+View = Struct.new(:name, :modules, :trusted, :data, :critical, :assumptions,
+                  :ctx)
 
 class View
   def findMod s
@@ -124,7 +125,9 @@ class View
       if creators.has_key? dn
         dataFacts << "creates." + dn + " in " + creators[dn].join(" + ")
       else 
-        dataFacts << "no creates." + dn
+        if critical.include? d
+          dataFacts << "no creates." + dn
+        end
       end     
     end
     alloyChunk += writeFacts("dataFacts", dataFacts)
@@ -142,6 +145,12 @@ class View
                                ["CriticalData = " + 
                                 critical.map { |d| d.to_s }.
                                 join(" + ")])
+    end
+
+    # write assumptions
+    if not assumptions.empty?
+      alloyChunk += writeFacts("assumptions", 
+                               assumptions.map { |a| a.to_alloy(ctx)})
     end
     
     #TODO: This is a hack; need a better way
@@ -161,27 +170,32 @@ class ViewBuilder
     @trusted = []
     @data = []
     @critical = []
+    @assumptions = []
     @ctx = {}
   end
   
   def data(*data)
-    @data = @data + data
+    @data += data
   end
 
   def critical(*data)
-    @critical = @critical + data
+    @critical += data
   end
 
   def modules(*mods)
-    @modules = @modules + mods
+    @modules += mods
   end
 
   def trusted(*mods)
-    @trusted = @trusted + mods
+    @trusted += mods
+  end
+
+  def assumes(*assums)
+    @assumptions += assums
   end
 
   def build name
-    View.new(name, @modules, @trusted, @data, @critical, @ctx)
+    View.new(name, @modules, @trusted, @data, @critical, @assumptions, @ctx)
   end
 end
 
@@ -209,7 +223,7 @@ def refineExports(sup, sub, opRel)
         o2 = matches[0]   
         exports << Op.new(mkMixedName(n, o2.name), 
                           {:when => conj(o.constraints[:when],
-                                        o2.constraints[:when]),
+                                         o2.constraints[:when]),
                             :args => (o.constraints[:args] + 
                                       o2.constraints[:args])}, o, o2)
         subExports.delete(o2)
@@ -250,13 +264,13 @@ def refineMod(sup, sub, opRel)
   name = mkMixedName(sup.name, sub.name)
   exports = refineExports(sup, sub, opRel)  
   invokes = refineInvokes(sup, sub, opRel)
-  constraints = sub.constraints + sup.constraints
+  assumptions = sub.assumptions + sup.assumptions
   stores = sub.stores + sup.stores
   creates = sub.creates + sup.creates
   extends = sup
   isAbstract = false
 
-  Mod.new(name, exports, invokes, constraints, stores, creates, 
+  Mod.new(name, exports, invokes, assumptions, stores, creates, 
           extends, isAbstract)
 end
 
@@ -344,7 +358,7 @@ def merge(v1, v2, mapping, opRel)
   end
 
   View.new(:MergedView, modules, [], v1.data + v2.data, 
-           v1.critical + v2.critical, ctx)
+           v1.critical + v2.critical, v1.assumptions + v2.assumptions, ctx)
 end
 
 def composeViews(v1, v2, refineRel = {})

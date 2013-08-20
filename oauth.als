@@ -6,7 +6,7 @@ one sig ResourceOwner extends Module {
 	authGrants : Credential -> AuthGrant,
 }{
 	all o : this.receives[(reqAuth)] | (some authGrants[o.cred])
-	all o : this.sends[(sendResp)] | ((some (o.trigger & (reqAuth)))) and ((authGrants[o.trigger.cred] = o.data))
+	all o : this.sends[(sendResp)] | ((some (o.trigger & (reqAuth)))) and (authGrants[o.trigger.cred] = o.data)
 }
 
 -- module Client
@@ -18,7 +18,7 @@ one sig AuthorizationServer extends Module {
 	accessTokens : AuthGrant -> AccessToken,
 }{
 	all o : this.receives[(reqAccessToken)] | (some accessTokens[o.authGrant])
-	all o : this.sends[(sendResp)] | ((some (o.trigger & (reqAccessToken)))) and ((accessTokens[o.trigger.authGrant] = o.data))
+	all o : this.sends[(sendResp)] | ((some (o.trigger & (reqAccessToken)))) and (accessTokens[o.trigger.authGrant] = o.data)
 }
 
 -- module ResourceServer
@@ -26,7 +26,7 @@ one sig ResourceServer extends Module {
 	resources : AccessToken -> Resource,
 }{
 	all o : this.receives[(reqRes)] | (some resources[o.accessToken])
-	all o : this.sends[(sendResp)] | ((some (o.trigger & (reqRes)))) and ((resources[o.trigger.accessToken] = o.data))
+	all o : this.sends[(sendResp)] | ((some (o.trigger & (reqRes)))) and (resources[o.trigger.accessToken] = o.data)
 }
 
 fact trustedModuleFacts {

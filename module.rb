@@ -5,7 +5,7 @@ require 'rubygems'
 require 'docile'
 require 'myutils.rb'
 
-Mod = Struct.new(:name, :exports, :invokes, :constraints, 
+Mod = Struct.new(:name, :exports, :invokes, :assumptions, 
                  :stores, :creates,
                  :extends, :isAbstract)
 Op = Struct.new(:name, :constraints, :parent, :child)
@@ -60,6 +60,8 @@ class Mod
       end
     end
 
+    sigfacts += assumptions.map {|m| m.to_alloy(ctx)}
+
     # write Alloy expressions
     # declarations 
     alloyChunk += wrap("-- module " + modn)
@@ -87,14 +89,14 @@ class ModuleBuilder
   def initialize 
     @exports = []
     @invokes = []
-    @constraints = []
+    @assumptions = []
     @stores = []
     @creates = []
     @extends = []
     @isAbstract = false
   end
 
-  def exports (op, constraints = {})   
+  def exports(op, constraints = {})   
     if constraints.empty?
       @exports << Op.new(op, {:when => Unit.new, :args => []})
     else
@@ -108,7 +110,7 @@ class ModuleBuilder
     end
   end
 
-  def invokes (op, constraints = {})
+  def invokes(op, constraints = {})
     if constraints.empty?
       @invokes << Op.new(op, :when => Unit.new) 
     else 
@@ -119,8 +121,8 @@ class ModuleBuilder
     end
   end
 
-  def constraints(*constr)
-    @constraints = @constraints + constr   
+  def assumes(*constr)
+    @assumptions += constr   
   end
 
   def stores (n, *types)
@@ -137,7 +139,7 @@ class ModuleBuilder
   end
 
   def creates(*data)    
-    @creates = @creates + data
+    @creates += data
   end
 
   def extends parent
@@ -145,7 +147,7 @@ class ModuleBuilder
   end
 
   def build name
-    Mod.new(name, @exports, @invokes, @constraints, @stores, 
+    Mod.new(name, @exports, @invokes, @assumptions, @stores, 
             @creates, @extends, @isAbstract)
   end
 end

@@ -9,14 +9,12 @@ resOwner = mod :ResourceOwner do
   # "req's argument includes credentials"
   exports(:reqAuth, 
           :args => [:cred], 
-          :when => contains(:authGrants, arg(:cred)))
+          :when => hasKey(:authGrants, arg(:cred)))
   # "in response to reqAuth"
   # "authorization grant for the requested scope
   invokes(:sendResp, 
           :when => conj(triggeredBy(:reqAuth), 
-                        equals(nav(:authGrants, 
-                                   arg(:cred, trig)), 
-                               arg(:data))))
+                        nav(:authGrants, arg(:cred, trig)).eq(arg(:data))))
 #:when => [triggeredBy :reqAuth,
 #          authGrants.cred(trig) == data]
 end
@@ -35,11 +33,11 @@ authServer = mod :AuthorizationServer do
   creates :AccessToken
   exports(:reqAccessToken, 
           :args => [:authGrant], 
-          :when => contains(:accessTokens, arg(:authGrant)))
+          :when => hasKey(:accessTokens, arg(:authGrant)))
   invokes(:sendResp, 
           :when => conj(triggeredBy(:reqAccessToken),
-                        equals(nav(:accessTokens, arg(:authGrant, trig)),
-                               arg(:data))))                       
+                        nav(:accessTokens, 
+                            arg(:authGrant, trig)).eq(arg(:data))))                    
 end
 
 resServer = mod :ResourceServer do
@@ -47,12 +45,11 @@ resServer = mod :ResourceServer do
   creates :Resource
   exports(:reqRes, 
           :args => [:accessToken],
-          :when => contains(:resources, arg(:accessToken)))
+          :when => hasKey(:resources, arg(:accessToken)))
   invokes(:sendResp,
           :when => conj(triggeredBy(:reqRes),
-                        equals(nav(:resources, 
-                                   arg(:accessToken, trig)),
-                               arg(:data))))
+                        nav(:resources, 
+                            arg(:accessToken, trig)).eq(arg(:data))))
 end
 
 VIEW_OAUTH = view :OAuth do 

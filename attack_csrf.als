@@ -58,7 +58,6 @@ sig httpReq2 extends Op {
 fact dataFacts {
 	creates.Cookie in GoodServer
 	creates.BadDOM in BadServer
-	no creates.Addr
 	no creates.Payload
 }
 sig Cookie extends Data {}
