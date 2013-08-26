@@ -11,16 +11,19 @@
 
 <node>
    <type name="Addr"/>
-   <type name="BadServer"/>
    <type name="Client"/>
-   <type name="GoodServer"/>
+   <type name="Cookie"/>
+   <type name="DOM"/>
+   <type name="HTTPHeader"/>
    <type name="httpReq"/>
    <type name="httpReq2"/>
    <type name="httpResp"/>
    <type name="Int"/>
+   <type name="MaliciousServer"/>
    <type name="OtherData"/>
    <type name="Payload"/>
    <type name="String"/>
+   <type name="TrustedServer"/>
    <type name="univ"/>
    <type name="User"/>
    <type name="visit"/>
@@ -29,6 +32,8 @@
    <type name="crypto/Key"/>
    <type name="seq/Int"/>
    <type name="basic/SO/Ord"/>
+   <set name="$Confidentiality_m" type="basic/Module"/>
+   <set name="$Confidentiality_t" type="basic/Step"/>
    <set name="First" type="basic/SO/Ord"/>
    <set name="Next" type="basic/SO/Ord"/>
    <set name="pre" type="basic/Op"/>
@@ -76,14 +81,14 @@
    <relation name="enc"> <type name="crypto/Crypto"/> <type name="basic/Data"/> <type name="crypto/Key"/> <type name="basic/Data"/> </relation>
 </edge>
 
+<edge visible="no" attribute="no">
+   <relation name="fields"> <type name="basic/Data"/> <type name="basic/Data"/> </relation>
+</edge>
+
 <edge visible="no" attribute="yes">
-   <relation name="addr"> <type name="GoodServer"/> <type name="Addr"/> </relation>
    <relation name="args"> <type name="basic/Op"/> <type name="basic/Data"/> </relation>
    <relation name="creates"> <type name="basic/Module"/> <type name="basic/Data"/> </relation>
-   <relation name="dest"> <type name="visit"/> <type name="basic/Data"/> </relation>
-   <relation name="redirect"> <type name="httpResp"/> <type name="basic/Data"/> </relation>
    <relation name="trigger"> <type name="basic/Op"/> <type name="basic/Op"/> </relation>
-   <relation name="visits"> <type name="User"/> <type name="Addr"/> </relation>
 </edge>
 
 </view>

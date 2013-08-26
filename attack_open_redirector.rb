@@ -4,13 +4,31 @@
 require 'view.rb'
 
 u = mod :User do
-  stores set(:visits, :Addr)
+  stores set(:intents, :Addr)
   invokes(:visit,
-          :when => expr(:visits).contains(arg(:dest)))
-  assumes (neg(expr(:visits).contains(expr(:BadServer).join(expr(:addr)))))
+          # user only types dest address that he/she intends to visit
+          :when => [:intents.contains(o.dest)])
+  # assumption: the user doesn't type addresses of a malicious site
+  assumes (neg(:intents.contains(:MaliciousServer.addr)))
 end
 
-c = mod :GoodClient do 
+gs = mod :TrustedServer do
+  stores :addr, :Addr
+  # accepts any requests
+  exports(:httpReq,
+          :args => [:addr])
+  invokes(:httpResp,
+          :when => [triggeredBy(:httpReq)])
+end
+
+bs = mod :MaliciousServer do
+  stores :addr, :Addr
+  exports(:httpReq2, 
+          :args => [:addr2])
+  invokes(:httpResp)
+end
+
+c = mod :Client do 
   exports(:visit,
           :args => [:dest])
   # exports responses with redirects
@@ -18,31 +36,17 @@ c = mod :GoodClient do
           :args => [:redirect])
   # invokes requests with redirects
   invokes(:httpReq,
-          :when => disj(conj(triggeredBy(:visit), 
-                             arg(:addr).eq(arg(:addr, trig))),
-                        conj(triggeredBy(:httpResp),
-                             arg(:addr).eq(arg(:redirect, trig)))))
+          # sends a http request only when
+          :when => [disj(
+                         # the user initiates a connection or
+                         conj(triggeredBy(:visit), o.addr.eq(trig.dest)),
+                         # receives a redirect header from the server
+                         conj(triggeredBy(:httpResp),
+                              o.addr.eq(trig.redirect)))])
   invokes(:httpReq2,
-          :when => disj(conj(triggeredBy(:visit), 
-                             arg(:addr).eq(arg(:addr, trig))),
-                        conj(triggeredBy(:httpResp),
-                             arg(:addr).eq(arg(:redirect, trig))))) 
-end
-
-bs = mod :BadServer do
-  stores :addr, :Addr
-  exports(:httpReq2, 
-          :args => [:addr2])
-  invokes(:httpResp)
-end
-
-gs = mod :GoodServer do
-  stores :addr, :Addr
-  # accepts requests
-  exports(:httpReq,
-          :args => [:addr])
-  # sends responses with redirect
-  invokes(:httpResp)
+          :when => [disj(conj(triggeredBy(:visit), o.addr2.eq(trig.dest)),
+                         conj(triggeredBy(:httpResp),
+                              o.addr2.eq(trig.redirect)))])
 end
 
 VIEW_OPEN_REDIRECTOR = view :OpenRedirector do
@@ -54,4 +58,3 @@ end
 
 drawView VIEW_OPEN_REDIRECTOR, "open_redirector.dot"
 dumpAlloy VIEW_OPEN_REDIRECTOR, "open_redirector.als"
-

@@ -4,10 +4,11 @@
 require 'rubygems'
 require 'docile'
 require 'myutils.rb'
+require 'datatype.rb'
 
 Mod = Struct.new(:name, :exports, :invokes, :assumptions, 
                  :stores, :creates,
-                 :extends, :isAbstract)
+                 :extends, :isAbstract, :isUniq)
 Op = Struct.new(:name, :constraints, :parent, :child)
 
 class Mod
@@ -23,15 +24,15 @@ class Mod
     # module declaration
     fields = stores
 
+    ctx[:nesting] = 1
     exports.each do |o|
       n = o.name.to_s
       ctx[:op] = n
-      c = o.constraints[:when].to_alloy(ctx)
       # receiver constraint
       # export constraint
-      if not c == UNIT 
-        f = "all o : this.receives[(" + n + ")] | " + c
-        sigfacts << f
+      o.constraints[:when].each do |c|
+        f = "all o : this.receives[" + n + "] | " + c.to_alloy(ctx)
+        sigfacts << f        
       end
     end
 
@@ -53,10 +54,9 @@ class Mod
     invokes.each do |o|
       n = o.name.to_s
       ctx[:op] = n
-      c1 = o.constraints[:when].to_alloy(ctx)
-      if not c1 == UNIT
-        f1 = "all o : this.sends[(" + n + ")] | " + c1
-        sigfacts << f1
+      o.constraints[:when].each do |c|
+        f = "all o : this.sends[" + n + "] | " + c.to_alloy(ctx)
+        sigfacts << f
       end
     end
 
@@ -65,7 +65,8 @@ class Mod
     # write Alloy expressions
     # declarations 
     alloyChunk += wrap("-- module " + modn)
-    alloyChunk += wrap("one sig " + modn + " extends Module {")
+    if isUniq then alloyChunk += "one " end
+    alloyChunk += wrap("sig " + modn + " extends Module {")
     # fields      
     fields.each do |f|
       alloyChunk += wrap(f.to_alloy(ctx) + ",", 1)
@@ -94,17 +95,18 @@ class ModuleBuilder
     @creates = []
     @extends = []
     @isAbstract = false
+    @isUniq = true
   end
 
   def exports(op, constraints = {})   
     if constraints.empty?
-      @exports << Op.new(op, {:when => Unit.new, :args => []})
+      @exports << Op.new(op, {:when => [], :args => []})
     else
       if not constraints.has_key? :args
         constraints[:args] = []
       end
       if not constraints.has_key? :when
-        constraints[:when] = Unit.new
+        constraints[:when] = []
       end
       @exports << Op.new(op, constraints)
     end
@@ -112,10 +114,10 @@ class ModuleBuilder
 
   def invokes(op, constraints = {})
     if constraints.empty?
-      @invokes << Op.new(op, :when => Unit.new) 
+      @invokes << Op.new(op, :when => []) 
     else 
       if not constraints.has_key? :when
-        constraints[:when] = Unit.new
+        constraints[:when] = []
       end
       @invokes << Op.new(op, constraints)
     end
@@ -135,6 +137,7 @@ class ModuleBuilder
     else 
       raise "Invalid stores declaration"
     end
+
     @stores << obj
   end
 
@@ -145,13 +148,19 @@ class ModuleBuilder
   def extends parent
     @extends << parent
   end
+  
+  def setUniq b
+    @isUniq = b
+  end
 
   def build name
     Mod.new(name, @exports, @invokes, @assumptions, @stores, 
-            @creates, @extends, @isAbstract)
+            @creates, @extends, @isAbstract, @isUniq)
   end
 end
 
 def mod(name, &block)
   Docile.dsl_eval(ModuleBuilder.new, &block).build name
 end
+
+

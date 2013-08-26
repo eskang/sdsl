@@ -4,13 +4,17 @@
 require 'module.rb'
 
 View = Struct.new(:name, :modules, :trusted, :data, :critical, :assumptions,
-                  :ctx)
+                  :protected, :ctx)
 
 class View
   def findMod s
-    modules.select { |m| m.name == s }
+    (modules.select { |m| m.name == s })[0]
   end
  
+  def findData s
+    (data.select { |d| d.name == s})[0]
+  end
+
   def to_alloy
     # type: opname -> list(modules)
     invokers = {}
@@ -21,6 +25,9 @@ class View
     decls = {}  # declarations
     sigfacts = {} # signature facts 
     fields = {} 
+
+    # for pretty printing purposes only
+    ctx[:nesting] = 0
 
     alloyChunk = ""
     
@@ -71,17 +78,28 @@ class View
 
       # data creations
       m.creates.each do |d|
-        d = d.to_s
         if not creators.has_key? d then creators[d] = [] end
         creators[d] << modn
+        superdata = findData(d).extends
+        if not superdata == :Data
+          if not creators.has_key? superdata then creators[superdata] = [] end
+          creators[superdata] << modn
+        end
       end
     end
-    
+
     # write facts about trusted modules
     if not trusted.empty?
       alloyChunk += writeFacts("trustedModuleFacts", 
                                ["TrustedModule = " + 
                                 trusted.map { |m| m.name }.
+                                join(" + ")])
+    end
+
+    if not protected.empty?
+      alloyChunk += writeFacts("protectedModuleFacts", 
+                               ["ProtectedModule = " + 
+                                protected.map { |m| m.name }.
                                 join(" + ")])
     end
 
@@ -101,7 +119,7 @@ class View
 
     # write op declarations
     decls.each do |k, v|
-      alloyChunk += wrap("-- operation " + k)
+      alloyChunk += writeComment("operation #{k}")
       alloyChunk += wrap("sig " + k + " extends " + v + " {")
       # fields      
       fields[k].each do |f|
@@ -121,23 +139,27 @@ class View
     # write facts about data creation
     dataFacts = []
     data.each do |d|
-      dn = d.to_s
+      dn = d.name
+
       if creators.has_key? dn
-        dataFacts << "creates." + dn + " in " + creators[dn].join(" + ")
+        dataFacts << "creates.#{dn} in " + creators[dn].join(" + ")
       else 
         if critical.include? d
-          dataFacts << "no creates." + dn
+          dataFacts << "no creates.#{dn}"
         end
       end     
     end
+
     alloyChunk += writeFacts("dataFacts", dataFacts)
 
+    
     # write data decls
+    alloyChunk += writeComment("datatype declarations")
     dataDecl = []
     data.each do |d|
-      alloyChunk += wrap("sig " + d.to_s + " extends Data {}")
+      alloyChunk += d.to_alloy(ctx)
     end
-    alloyChunk += wrap("sig OtherData extends Data {}")
+    alloyChunk += wrap("sig OtherData extends Data {}{ no fields }")
     
     # write critical data fact
     if not critical.empty?
@@ -155,8 +177,10 @@ class View
     
     #TODO: This is a hack; need a better way
     ctx.each do |k, v|
-      alloyChunk = alloyChunk.gsub("(" + k.to_s + ")", 
-                                   "(" + v.to_a.join("+") + ")")
+      if not (k == :op or k == :nesting)
+        alloyChunk = alloyChunk.gsub("(" + k.to_s + ")", 
+                                     "(" + v.to_a.join("+") + ")")
+      end
     end
 
     alloyChunk
@@ -171,11 +195,18 @@ class ViewBuilder
     @data = []
     @critical = []
     @assumptions = []
+    @protected = []
     @ctx = {}
   end
   
   def data(*data)
-    @data += data
+    @data += data.map{ |d| 
+      if d.is_a? Datatype
+        d
+      else 
+        Datatype.new(d, [], :Data, false) 
+      end
+    }
   end
 
   def critical(*data)
@@ -194,8 +225,13 @@ class ViewBuilder
     @assumptions += assums
   end
 
+  def protected(*mods)
+    @protected += mods
+  end
+
   def build name
-    View.new(name, @modules, @trusted, @data, @critical, @assumptions, @ctx)
+    View.new(name, @modules, @trusted, @data, @critical, @assumptions, 
+             @protected, @ctx)
   end
 end
 
@@ -222,8 +258,8 @@ def refineExports(sup, sub, opRel)
       if not matches.empty?
         o2 = matches[0]   
         exports << Op.new(mkMixedName(n, o2.name), 
-                          {:when => conj(o.constraints[:when],
-                                         o2.constraints[:when]),
+                          {:when => (o.constraints[:when] + 
+                                     o2.constraints[:when]),
                             :args => (o.constraints[:args] + 
                                       o2.constraints[:args])}, o, o2)
         subExports.delete(o2)
@@ -245,8 +281,8 @@ def refineInvokes(sup, sub, opRel)
       if not matches.empty?
         o2 = matches[0]     
         invokes << Op.new(mkMixedName(n, o2.name), 
-                          {:when => conj(o.constraints[:when],
-                                         o2.constraints[:when])},
+                          {:when => (o.constraints[:when] + 
+                                     o2.constraints[:when])},
                           o, o2)
         subInvokes.delete(o2)
         next
@@ -257,11 +293,58 @@ def refineInvokes(sup, sub, opRel)
   invokes + subInvokes
 end
 
+def abstractExports(m1, m2, opRel)
+  exports = []
+  m2Exports = m2.exports.dup
+  m1.exports.each do |o|
+    n = o.name
+    if opRel.has_key? n 
+      matches = m2.exports.select { |o2| o2.name == opRel[n] }      
+      if not matches.empty?
+        o2 = matches[0]   
+        exports << Op.new(n, #mkMixedName(n, o2.name), 
+                          {:when => union(o.constraints[:when],
+                                          o2.constraints[:when]),
+                            :args => myuniq(o.constraints[:args] + 
+                                            o2.constraints[:args])}, o, o2)
+        m2Exports.delete(o2)
+        next
+      end
+    end
+    exports << o
+  end  
+  exports + m2Exports  
+end
+
+def abstractInvokes(m1, m2, opRel)
+  invokes = []
+  m2Invokes = m2.invokes.dup
+  m1.invokes.each do |o|
+    n = o.name
+    
+    if opRel.has_key? n 
+      matches = m2.invokes.select { |o2| o2.name == opRel[n] }    
+      if not matches.empty?
+        o2 = matches[0]     
+        invokes << Op.new(n, #mkMixedName(n, o2.name),
+                          {:when => union(o.constraints[:when],
+                                          o2.constraints[:when])},
+                          o, o2)
+        m2Invokes.delete(o2)
+        next
+      end
+    end
+    invokes << o
+  end
+  invokes + m2Invokes
+end
+
 # sup is the module being refined
 # sub is the module refining
 # sup is a supertype of sub
 def refineMod(sup, sub, opRel)
   name = mkMixedName(sup.name, sub.name)
+  # refinement
   exports = refineExports(sup, sub, opRel)  
   invokes = refineInvokes(sup, sub, opRel)
   assumptions = sub.assumptions + sup.assumptions
@@ -269,15 +352,26 @@ def refineMod(sup, sub, opRel)
   creates = sub.creates + sup.creates
   extends = sup
   isAbstract = false
+  isUniq = sup.isUniq  #TODO: Fix it later
 
   Mod.new(name, exports, invokes, assumptions, stores, creates, 
-          extends, isAbstract)
+          extends, isAbstract, isUniq)
 end
 
-# sup is the op being refiend
-# sub is the op refining
-# sup is a supertype of sub
-def refineOp(sup, sub)
+def mergeMod(m1, m2, opRel)
+  name = m1.name #mkMixedName(m1.name, m2.name)
+  # abstraction
+  exports = abstractExports(m1, m2, opRel)  
+  invokes = abstractInvokes(m1, m2, opRel)
+  assumptions = m2.assumptions + m1.assumptions
+  stores = myuniq(m2.stores + m1.stores)
+  creates = m2.creates + m1.creates
+  extends = m1
+  isAbstract = false
+  isUniq = m1.isUniq #TODO: Fix it later
+
+  Mod.new(name, exports, invokes, assumptions, stores, creates, 
+          extends, isAbstract, isUniq)
 end
 
 def buildMapping(v1, v2, refinementRel)
@@ -288,19 +382,25 @@ def buildMapping(v1, v2, refinementRel)
   opRel = refinementRel[:Op]
 
   dataRel = refinementRel[:Data]
-  dataRel.each do |from, to| 
-    refinedData = RefinedData.new(to, from)
-    dataMap[from] = refinedData    
+  dataRel.each do |from, to|
+    sub = v1.findData(from)
+    sup = v2.findData(to)    
+    dataMap[from] = Datatype.new(sub.name, sub.fields, sup.name, false)
+    dataMap[to] = Datatype.new(sup.name, sup.fields, :Data, true)
   end
 
   modRel = refinementRel[:Module]
   modRel.each do |from, to|
-    sup = v1.findMod(from)[0]
-    sub = v2.findMod(to)[0]
-    refinedModule = refineMod(sup, sub, opRel)
-    moduleMap[sup] = refinedModule
+    sup = v1.findMod(from)
+    sub = v2.findMod(to)
+    if sup.name == sub.name      
+      newMod = mergeMod(sup, sub, opRel)
+    else
+      newMod = refineMod(sup, sub, opRel)
+    end
+    moduleMap[sup] = newMod
     sup.isAbstract = true
-    moduleMap[sub] = refinedModule #TODO: too strong, fix later    
+    moduleMap[sub] = newMod #TODO: too strong, fix later    
   end
 
   dataMap.update(opMap).update(moduleMap)
@@ -311,32 +411,52 @@ end
 # 2. map from each operation in (v1 + v2) to an operation
 # 3. map from each module in (v1 + v2) to a module
 def merge(v1, v2, mapping, opRel)
-  modules = Set.new
+  modules = []
   ctx = {}
-  
+
   opRel.each do |from, to|
-    o = mkMixedName(from, to).to_s
+    if from == to 
+      o = from.to_s
+    else 
+      o = mkMixedName(from, to).to_s
+    end
+
     if ctx[from].nil? then ctx[from] = Set.new() end
     if ctx[to].nil? then ctx[to] = Set.new() end    
     ctx[from].add(o)
     ctx[to].add(o)
   end
 
-  v1.modules.each do |m| 
+  (v1.modules + v2.modules).each do |m| 
     if mapping.has_key? m 
-      modules.add(mapping[m])
+      modules << mapping[m]
     else
-      modules.add(m)
+      modules << m.clone
     end
   end
-  
-  v2.modules.each do |m|
-    if mapping.has_key? m
-      modules.add(mapping[m])
-    else
-      modules.add(m)
+  modules = myuniq(modules)
+
+  # trusted modules
+  trusted = (v1.trusted + v2.trusted).map{ |m| if mapping.has_key? m then 
+                                                 mapping[m] 
+                                               else 
+                                                 m end}
+  # data
+  data = (v1.data + v2.data).map { |d| if mapping.has_key? d.name then 
+                                         mapping[d.name]
+                                       else 
+                                         d
+                                       end}
+  otherData = []
+  data.each do |d|
+    dn = d.name
+    i = data.find_index { |d2| d2.extends == dn }
+    if i then
+      otherData << Datatype.new(("Other#{dn}").to_sym, [], dn, false) 
     end
   end
+  data += otherData
+  data = myuniq(data)
 
   # all exported operations
   allExports = modules.inject([]) {|r, m| r + m.exports}
@@ -351,14 +471,14 @@ def merge(v1, v2, mapping, opRel)
                                 ((not e.parent.nil?) and n == e.parent.name) or
                                 ((not e.child.nil?) and n == e.child.name))}
       relevantExports.each do |e|
-        newInvokes<< Op.new(e.name, c)        
-      end        
+        newInvokes << Op.new(e.name, c)
+      end
     end
     m.invokes = newInvokes
   end
 
-  View.new(:MergedView, modules, [], v1.data + v2.data, 
-           v1.critical + v2.critical, v1.assumptions + v2.assumptions, ctx)
+  View.new(:MergedView, modules, trusted, data, v1.critical, 
+           v1.assumptions + v2.assumptions, v1.protected, ctx)
 end
 
 def composeViews(v1, v2, refineRel = {})
@@ -370,6 +490,7 @@ def composeViews(v1, v2, refineRel = {})
 
   # Construct a new view based on the relations between the two views
   mergeResult = merge(v1, v2, mapping, refineRel[:Op])
+
   pp "*** Merge Result ***:"
 #  pp mergeResult
   mergeResult

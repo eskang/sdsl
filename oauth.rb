@@ -6,20 +6,19 @@ require 'view.rb'
 resOwner = mod :ResourceOwner do
   stores :authGrants, :Credential, :AuthGrant
   creates :AuthGrant
-  # "req's argument includes credentials"
   exports(:reqAuth, 
           :args => [:cred], 
-          :when => hasKey(:authGrants, arg(:cred)))
-  # "in response to reqAuth"
-  # "authorization grant for the requested scope
+          # must include a valid credential 
+          :when => [hasKey(:authGrants, arg(:cred))])
   invokes(:sendResp, 
-          :when => conj(triggeredBy(:reqAuth), 
-                        nav(:authGrants, arg(:cred, trig)).eq(arg(:data))))
-#:when => [triggeredBy :reqAuth,
-#          authGrants.cred(trig) == data]
+          :when => [
+                    # must be preceded by a successful reqAuth operation
+                    triggeredBy(:reqAuth),
+                    # must only include auth. grant for given credential
+                    :authGrants[trig.cred].eq(o.data)])
 end
 
-client = mod :Client do
+client = mod :ClientApp do
   stores :cred, :Credential
   creates :Credential
   invokes :reqAuth
@@ -33,11 +32,14 @@ authServer = mod :AuthorizationServer do
   creates :AccessToken
   exports(:reqAccessToken, 
           :args => [:authGrant], 
-          :when => hasKey(:accessTokens, arg(:authGrant)))
+          # must include a valid authorization grant
+          :when => [hasKey(:accessTokens, o.authGrant)])
   invokes(:sendResp, 
-          :when => conj(triggeredBy(:reqAccessToken),
-                        nav(:accessTokens, 
-                            arg(:authGrant, trig)).eq(arg(:data))))                    
+          :when => [
+                    # must be preceded by a reqAccessToken op
+                    triggeredBy(:reqAccessToken),
+                    # must only include access token for given auth grant
+                    :accessTokens[trig.authGrant].eq(o.data)])
 end
 
 resServer = mod :ResourceServer do
@@ -45,11 +47,14 @@ resServer = mod :ResourceServer do
   creates :Resource
   exports(:reqRes, 
           :args => [:accessToken],
-          :when => hasKey(:resources, arg(:accessToken)))
+          # must include a valid access token
+          :when => [hasKey(:resources, arg(:accessToken))])
   invokes(:sendResp,
-          :when => conj(triggeredBy(:reqRes),
-                        nav(:resources, 
-                            arg(:accessToken, trig)).eq(arg(:data))))
+          :when => [
+                    # must be preceded by a reqRes op
+                    triggeredBy(:reqRes),
+                    # must only include resource for given access token
+                    :resources[trig.accessToken].eq(o.data)])
 end
 
 VIEW_OAUTH = view :OAuth do 
@@ -68,3 +73,4 @@ dumpAlloy VIEW_OAUTH, "oauth.als"
 # puts resServer
 
 # writeDot mods
+

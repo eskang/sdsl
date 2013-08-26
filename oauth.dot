@@ -6,30 +6,30 @@ subgraph cluster_ResourceOwner {
 style=filled; color=lightgrey;
 ResourceOwner [shape=component];
 reqAuth [shape=rectangle,style="rounded"];
-ResourceOwner -> reqAuth [dir=none,color=red];
+ResourceOwner -> reqAuth [dir=none];
 }
 ResourceOwner -> sendResp;
-subgraph cluster_Client { 
+subgraph cluster_ClientApp { 
 style=filled; color=lightgrey;
-Client [shape=component];
+ClientApp [shape=component];
 sendResp [shape=rectangle,style="rounded"];
-Client -> sendResp [dir=none,color=red];
+ClientApp -> sendResp [dir=none];
 }
-Client -> reqAuth;
-Client -> reqRes;
-Client -> reqAccessToken;
+ClientApp -> reqAuth;
+ClientApp -> reqRes;
+ClientApp -> reqAccessToken;
 subgraph cluster_AuthorizationServer { 
 style=filled; color=lightgrey;
 AuthorizationServer [shape=component];
 reqAccessToken [shape=rectangle,style="rounded"];
-AuthorizationServer -> reqAccessToken [dir=none,color=red];
+AuthorizationServer -> reqAccessToken [dir=none];
 }
 AuthorizationServer -> sendResp;
 subgraph cluster_ResourceServer { 
 style=filled; color=lightgrey;
 ResourceServer [shape=component];
 reqRes [shape=rectangle,style="rounded"];
-ResourceServer -> reqRes [dir=none,color=red];
+ResourceServer -> reqRes [dir=none];
 }
 ResourceServer -> sendResp;
 }

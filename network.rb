@@ -1,4 +1,4 @@
-# onetimepad.rb
+# network.rb
 #
 require 'view.rb'
 
@@ -15,16 +15,15 @@ receiver = mod :Receiver do
   stores :key, :Key
   creates :Ciphertext
 
-  exports(:send,
-          :args => [:msg])
+  exports(:send, :args => [:msg])
 end
 
-V_NETWORK = view :OneTimePad do
+V_NETWORK = view :Network do
   modules sender, receiver
   trusted sender, receiver
   data :Resource, :Ciphertext
   critical :Resource
 end
 
-# drawView V_ONETIMEPAD
-# dumpAlloy V_OENTIMEPAD
+drawView V_NETWORK, "network.dot"
+dumpAlloy V_NETWORK, "network.als"

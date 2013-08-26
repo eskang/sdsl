@@ -11,6 +11,7 @@ DOT_FILE = "out.dot"
 ALLOY_FILE = "out.als"
 FONTNAME = "courier"
 UNIT = "UNIT"
+UNIVERSAL_FIELDS = ["trigger"]
 ALLOY_CMDS = "
 fun RelevantOp : Op -> Step {
 	{o : Op, t : Step | o.post = t and o in SuccessOp}
@@ -30,9 +31,28 @@ check Integrity {
 } for 5 but 9 Data, 10 Step, 9 Op
 "
 
+class Array
+  def to_alloy(ctx=nil)
+    self.map { |e| e.to_alloy(ctx) }.join(" and ")
+  end
+end
+
+class Symbol
+  def method_missing(n, *args, &block)
+    if args.count > 1
+      raise "Symbol.method_missing: Invalid number of arguments!"
+    end
+    e(self).send(n, args[0])
+  end
+end
+
 # String utils
 def wrap(s, t=0)  
   ("\t"*t) + s + "\n"
+end
+
+def tab(s, t=0)
+  ("\t"*t) + s
 end
 
 def append(s1, s2)
@@ -43,11 +63,16 @@ def enclose s
   "(" + s + ")"
 end
 
+def writeComment comment
+  wrap("\n-- #{comment}")
+end
+
 def writeFacts(fname, facts)
   if facts.empty? 
     ""
   else 
-    str = wrap("fact " + fname + " {")
+    str = writeComment("fact #{fname}")
+    str += wrap("fact " + fname + " {")
     facts.each do |f|
       str += wrap(f, 1)
     end
@@ -75,7 +100,7 @@ def writeDot(mods, dotFile)
     f.puts(dotModule m)
     m.exports.each do |e|
       f.puts(dotOp e)
-      f.puts("#{m.name} -> #{e.name} [dir=none,color=red];")
+      f.puts("#{m.name} -> #{e.name} [dir=none];")
     end
     f.puts "}"
     m.invokes.each do |i|
@@ -110,6 +135,7 @@ end
 
 # Unary rel with multiplicity lone
 class Item < Rel
+  attr_reader :name, :type
   def initialize(n, t)
     @name = n
     @type = t
@@ -120,6 +146,13 @@ class Item < Rel
   def to_alloy(ctx=nil)
     @name.to_s + " : lone " + @type.to_s
   end
+  def ==(other)
+    other.equal?(self) ||
+    (other.instance_of?(self.class) && 
+     other.name == self.name && 
+     other.type == self.type)
+  end
+
 end
 def item(n, t)
   Item.new(n, t)
@@ -127,6 +160,7 @@ end
 
 # Alloy set
 class Bag < Rel
+  attr_reader :name, :type
   def initialize(n, t)
     @name = n
     @type = t
@@ -137,6 +171,13 @@ class Bag < Rel
   def to_alloy(ctx=nil)
     @name.to_s + " : set " + @type.to_s
   end
+  def ==(other)
+    other.equal?(self) ||
+    (other.instance_of?(self.class) && 
+     other.name == self.name && 
+     other.type == self.type)
+  end
+
 end
 def set(n, t)
   Bag.new(n, t)
@@ -144,6 +185,7 @@ end
 
 # Functions
 class Map < Rel
+  attr_reader :name, :type1, :type2
   def initialize(n, t1, t2)
     @name = n
     @type1 = t1
@@ -155,11 +197,27 @@ class Map < Rel
   def to_alloy(ctx=nil)
     @name.to_s + " : " + @type1.to_s + " -> " + @type2.to_s  
   end
+  def ==(other)
+    other.equal?(self) ||
+    (other.instance_of?(self.class) && 
+     other.name == self.name && 
+     other.type1 == self.type1 &&
+     other.type2 == self.type2)
+  end
+
 end
 def hasKey(m, i)
   if not m.is_a? Expr then m = expr(m) end
   if not i.is_a? Expr then i = expr(i) end
-  exists(nav(m, i))  
+  some(nav(m, i))  
+end
+
+def myuniq(a)
+  a2 = []
+  a.each do |e|
+    if not a2.include? e then a2 << e end
+  end
+  a2
 end
 
 # Expressions
@@ -170,11 +228,21 @@ class Expr
   end
   
   def contains otherExpr
-    exists(intersect(self, otherExpr))
+    if not otherExpr.is_a? Expr then otherExpr = expr(otherExpr) end 
+    some(intersect(self, otherExpr))
   end
 
   def eq otherExpr
     Equals.new(self, otherExpr)
+  end
+  
+  def [] key
+    if not key.is_a? Expr then key = expr(key) end  
+    Nav.new(self, key)
+  end
+
+  def method_missing(n, *args, &block)
+    self.join(expr(n))
   end
 end
 
@@ -183,7 +251,7 @@ class AlloyExpr < Expr
     @e = e
   end
   def to_s
-    @e
+    @e.to_s
   end
   def to_alloy(ctx=nil)
     @e.to_s
@@ -211,6 +279,22 @@ end
 def expr(e)
   SymbolExpr.new(e)
 end
+def e(e)
+  expr(e)
+end
+
+class FuncApp < Expr
+  def initialize(f, e)
+    @f = f
+    @e = e
+  end
+  def to_s
+    "#{@f.to_s}[#{@e.to_s}]"
+  end
+  def to_alloy(ctx=nil)
+    @f.to_alloy(ctx) + "[" + @e.to_alloy(ctx) +"]"
+  end
+end
 
 class OpExpr < Expr
   def initialize(e)
@@ -221,10 +305,14 @@ class OpExpr < Expr
   end
   def to_alloy(ctx=nil)
     if ctx.has_key? @e 
-      "(" + ctx[@e].to_a.join(" + ") + ")"
+      expr = ctx[@e].to_a.join(" + ")
+      if ctx[@e].count > 1
+        expr = enclose(expr)
+      end
     else
-      "(" + @e.to_s + ")"
+      expr = @e.to_s
     end
+    expr
   end
 end
 def op(e)
@@ -237,13 +325,15 @@ class Intersect < Expr
     @e2 = e2
   end
   def to_s
-    @e1 + " /\ " + @e2
+    @e1.to_s + " /\\ " + @e2.to_s
   end
   def to_alloy(ctx=nil)
     enclose(@e1.to_alloy(ctx) + " & " + @e2.to_alloy(ctx))
   end
 end
 def intersect(e1, e2)
+  if not e1.is_a? Expr then e1 = expr(e1) end
+  if not e2.is_a? Expr then e2 = expr(e2) end
   Intersect.new(e1, e2)
 end
 
@@ -254,7 +344,7 @@ class Nav < Expr
     @index = i
   end
   def to_s
-    @map + "[" + @index + "]"
+    @map.to_s + "[" + @index.to_s + "]"
   end
   def to_alloy(ctx=nil)
     @map.to_alloy(ctx) + "[" + @index.to_alloy(ctx) + "]"
@@ -272,30 +362,51 @@ class Join < Expr
     @col = c
   end
   def to_s
-    @rel + "." + @col
+    @rel.to_s + "." + @col.to_s
   end
   def to_alloy(ctx=nil)
     e1 = @rel.to_alloy(ctx)
     e2 = @col.to_alloy(ctx)
+    if e1 == "o"
+      if not UNIVERSAL_FIELDS.include? e2
+        e2 = "(" + ctx[:op] + " <: " + e2 + ")"
+      end
+    end
     e1 + "." + e2
   end
 end
 
 def arg(arg, op = nil)
   if not op 
-    expr(:o).join expr(arg)
+    e = expr(:o).join expr(arg)
   else 
-    op.join expr(arg)
+    e = op.join expr(arg)
   end
+  FuncApp.new(e(:arg), e)
 end
 
 def trig 
   expr(:o).join expr(:trigger)
 end
 
+def o
+  expr(:o)
+end
+
 #########################################
 # Formulas
 class Formula 
+  def and other
+    And.new(self, other)
+  end
+
+  def or other
+    Or.new(self, other)
+  end
+  
+  def then other
+    Implies.new(self, other)
+  end
 end
 
 class AlloyFormula < Formula
@@ -336,13 +447,13 @@ class Exists < Formula
     @expr = e
   end  
   def to_s
-    "Some(" + e + ")"
+    "Some(" + @expr.to_s + ")"
   end
   def to_alloy(ctx=nil)
     enclose("some " + @expr.to_alloy(ctx))
   end
 end
-def exists(e)
+def some(e)
   Exists.new(e)
 end 
 
@@ -351,14 +462,29 @@ class Not < Formula
     @expr = e
   end  
   def to_s
-    "Not(" + e + ")"
+    "Not(" + @expr.to_s + ")"
   end
   def to_alloy(ctx=nil)
-    "not " + enclose(@expr.to_alloy(ctx))
+    enclose("not " + @expr.to_alloy(ctx))
   end
 end
 def neg(e)
   Not.new(e)
+end 
+
+class No < Formula
+  def initialize(e)
+    @expr = e
+  end  
+  def to_s
+    "No(" + @expr.to_s + ")"
+  end
+  def to_alloy(ctx=nil)
+    enclose("no " + @expr.to_alloy(ctx))
+  end
+end
+def no(e)
+  No.new(e)
 end 
 
 class And < Formula
@@ -368,23 +494,44 @@ class And < Formula
     @right = f2
   end
   def to_s
-    "And(" + left + "," + right + ")"
+    "And(" + left.to_s + "," + right.to_s + ")"
   end
 
   def to_alloy(ctx=nil)
     lformula = left.to_alloy(ctx)
     rformula = right.to_alloy(ctx)
     if lformula == UNIT or rformula == UNIT
-      if lformula = UNIT then expr = rformula end
-      if rformula = UNIT then expr = lformula end
+      if lformula == UNIT then expr = enclose(rformula) end
+      if rformula == UNIT then expr = enclose(lformula) end
       expr
     else      
-      enclose(lformula) + " and " + enclose(rformula)
+      enclose(lformula + " and " + rformula)
     end
   end
 end
 def conj(f1, f2)
   And.new(f1, f2)
+end
+def conjs(*fs)
+  fs.inject(Unit.new) { |r, e| And.new(r, e) }
+end
+
+class Implies < Formula
+  def initialize(e1, e2)
+    @left = e1
+    @right = e2
+  end
+
+  def to_s
+    "Implies(" + @left.to_s + "," + @right.to_s + ")"
+  end
+
+  def to_alloy(ctx=nil)
+    enclose(@left.to_alloy(ctx) + " implies " + @right.to_alloy(ctx))
+  end
+end
+def implies(f1, f2)
+  Implies.new(f1, f2)
 end
 
 class Or < Formula
@@ -395,21 +542,42 @@ class Or < Formula
   end
 
   def to_s
-    "Or(" + left + "," + right + ")"
+    "Or(" + left.to_s + "," + right.to_s + ")"
   end
 
   def to_alloy(ctx=nil)
+    ctx[:nesting] += 1
     lformula = left.to_alloy(ctx)
     rformula = right.to_alloy(ctx)
+    ctx[:nesting] -= 1
     if lformula == UNIT or rformula == UNIT
       raise "An invalid OR expression: OR(" + lformula + "," + rformula + ")"
-    else      
-      enclose(lformula) + " or " + enclose(rformula)
+    else
+      str = wrap("")
+      str += wrap("(#{lformula}", ctx[:nesting] + 1)
+      str += wrap("or", ctx[:nesting] + 1)
+      str += wrap("#{rformula}", ctx[:nesting] + 1)
+      str += tab(")", ctx[:nesting] + 1)
+#      str = enclose(lformula + " or " + rformula)       
     end
+    str
   end
 end
 def disj(f1, f2)
   Or.new(f1, f2)
+end
+
+def union(flst1, flst2)
+  if flst1.empty? && flst2.empty?
+    []
+  elsif flst1.empty?
+    flst2
+  elsif flst2.empty?
+    flst1
+  else 
+    [disj(flst1.inject(Unit.new) { |r, f| conj(r, f)},
+          flst2.inject(Unit.new) { |r, f| conj(r, f)})]
+  end
 end
 
 class Equals < Formula
@@ -419,7 +587,7 @@ class Equals < Formula
   end
 
   def to_s
-    "Equals(" + @left + "," + @right + ")"
+    "Equals(" + @left.to_s + "," + @right.to_s + ")"
   end
 
   def to_alloy(ctx=nil)
@@ -427,7 +595,25 @@ class Equals < Formula
   end
 end
 
+class Pred2App < Formula
+  def initialize(pred, a1, a2)
+    @pred = pred
+    @a1 = a1
+    @a2 = a2
+  end
+
+  def to_s
+    @pred.to_s + "[" + @a1.to_s + "," + @a2.to_s + "]"
+  end
+
+  def to_alloy(ctx=nil)
+    @pred.to_alloy(ctx) + "[" + @a1.to_alloy(ctx) + "," + 
+      @a2.to_alloy(ctx) + "]"
+  end  
+end
+
 def triggeredBy(t)
-  if not t.is_a? Expr then t = op(t) end  
-  exists(intersect(trig,t))
+#  if not t.is_a? Expr then t = op(t) end  
+#  some(intersect(trig,t))
+  Pred2App.new(e(:triggeredBy), e(:o), op(t)) 
 end
