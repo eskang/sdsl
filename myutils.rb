@@ -84,8 +84,12 @@ def dotModule m
   "#{m.name} [shape=component];"
 end
 
-def dotOp o
-  "#{o.name} [shape=rectangle,style=\"rounded\"];"
+def dotOpName(m, o)
+  "#{m.name}_#{o.name}"
+end
+
+def dotOp(m, o)
+  "#{dotOpName(m, o)} [label=\"#{o.name}\",shape=rectangle,style=\"rounded\"];"
 end
 
 def writeDot(mods, dotFile)
@@ -95,16 +99,20 @@ def writeDot(mods, dotFile)
   f.puts 'node[fontname="' + FONTNAME + '"];'
   f.puts 'edge[fontname="' + FONTNAME + '", len=1.0];'
   mods.each do |m|
-    f.puts "subgraph cluster_" + m.name.to_s + " { " 
+    f.puts "subgraph cluster_#{m.name} { " 
     f.puts "style=filled; color=lightgrey;"
     f.puts(dotModule m)
     m.exports.each do |e|
-      f.puts(dotOp e)
-      f.puts("#{m.name} -> #{e.name} [dir=none];")
+      f.puts(dotOp(m, e))
+      f.puts("#{m.name} -> #{dotOpName(m, e)} [dir=none];")
     end
     f.puts "}"
     m.invokes.each do |i|
-      f.puts("#{m.name} -> #{i.name};")
+      mods.each do |m2|
+        if m2.exports.any? { |i2| i2.name == i.name}
+          f.puts("#{m.name} -> #{dotOpName(m2, i)};")
+        end
+      end
     end
   end
   f.puts "}"
@@ -146,6 +154,9 @@ class Item < Rel
   def to_alloy(ctx=nil)
     @name.to_s + " : lone " + @type.to_s
   end
+  def rewrite(ctx)
+    Item.new(@name, @typ)
+  end
   def ==(other)
     other.equal?(self) ||
     (other.instance_of?(self.class) && 
@@ -170,6 +181,9 @@ class Bag < Rel
   end
   def to_alloy(ctx=nil)
     @name.to_s + " : set " + @type.to_s
+  end
+  def rewrite(ctx)
+    Bag.new(@name, @typ)
   end
   def ==(other)
     other.equal?(self) ||
@@ -197,6 +211,10 @@ class Map < Rel
   def to_alloy(ctx=nil)
     @name.to_s + " : " + @type1.to_s + " -> " + @type2.to_s  
   end
+  def rewrite(ctx)
+    Map.new(@name,@type1,@type2)
+  end
+
   def ==(other)
     other.equal?(self) ||
     (other.instance_of?(self.class) && 
@@ -256,7 +274,11 @@ class AlloyExpr < Expr
   def to_alloy(ctx=nil)
     @e.to_s
   end
+  def rewrite(ctx)
+    AlloyExpr.new(@e)
+  end
 end
+
 def ae(e)
   AlloyExpr.new(e)
 end
@@ -275,7 +297,23 @@ class SymbolExpr < Expr
       @e.to_s
     end
   end
+  def rewrite(ctx)
+    if ctx.has_key? @e
+      tmp = nil
+      ctx[@e].to_a.each do |e2|
+        if tmp = nil
+          tmp = SymbolExpr.new(e2)
+        else 
+          tmp = Union.new(tmp, e2)
+        end
+      end
+      tmp
+    else 
+      SymbolExpr.new(@e)
+    end
+  end
 end
+
 def expr(e)
   SymbolExpr.new(e)
 end
@@ -293,6 +331,9 @@ class FuncApp < Expr
   end
   def to_alloy(ctx=nil)
     @f.to_alloy(ctx) + "[" + @e.to_alloy(ctx) +"]"
+  end
+  def rewrite(ctx)
+    FuncApp.new(@f.rewrite(ctx), @e.rewrite(ctx))
   end
 end
 
@@ -314,9 +355,40 @@ class OpExpr < Expr
     end
     expr
   end
+  def rewrite(ctx)
+    if ctx.has_key? @e
+      tmp = nil
+      ctx[@e].to_a.each do |e2|
+        if tmp = nil
+          tmp = OpExpr.new(e2)
+        else 
+          tmp = Union.new(tmp, e2)
+        end
+      end
+      tmp
+    else 
+      OpExpr.new(@e)
+    end
+  end
 end
 def op(e)
   OpExpr.new(e)
+end
+
+class Union < Expr
+  def initialize(e1, e2)
+    @e1 = e1
+    @e2 = e2
+  end
+  def to_s
+    @e1.to_s + " \\/ " + @e2.to_s
+  end
+  def to_alloy(ctx=nil)
+    enclose(@e1.to_alloy(ctx) + " + " + @e2.to_alloy(ctx))
+  end
+  def rewrite(ctx)
+    Union.new(@e1.rewrite(ctx), @e2.rewrite(ctx))
+  end
 end
 
 class Intersect < Expr
@@ -330,6 +402,9 @@ class Intersect < Expr
   def to_alloy(ctx=nil)
     enclose(@e1.to_alloy(ctx) + " & " + @e2.to_alloy(ctx))
   end
+  def rewrite(ctx)
+    Intersect.new(@e1.rewrite(ctx), @e2.rewrite(ctx))
+  end  
 end
 def intersect(e1, e2)
   if not e1.is_a? Expr then e1 = expr(e1) end
@@ -348,6 +423,9 @@ class Nav < Expr
   end
   def to_alloy(ctx=nil)
     @map.to_alloy(ctx) + "[" + @index.to_alloy(ctx) + "]"
+  end
+  def rewrite(ctx)
+    Nav.new(@map.rewrite(ctx), @index.rewrite(ctx))
   end
 end
 def nav(m, i)
@@ -373,6 +451,9 @@ class Join < Expr
       end
     end
     e1 + "." + e2
+  end
+  def rewrite(ctx)
+    Join.new(@rel.rewrite(ctx), @col.rewrite(ctx))
   end
 end
 
@@ -425,6 +506,9 @@ class AlloyFormula < Formula
     end
     exp
   end
+  def rewrite(ctx)
+    AlloyFormula.new(ctx)
+  end
 end
 def af(f)
   AlloyFormula.new(f)
@@ -440,6 +524,9 @@ class Unit < Formula
   def to_alloy(ctx=nil)
     UNIT
   end
+  def rewrite(ctx)
+    Unit
+  end
 end
 
 class Exists < Formula
@@ -451,6 +538,9 @@ class Exists < Formula
   end
   def to_alloy(ctx=nil)
     enclose("some " + @expr.to_alloy(ctx))
+  end
+  def rewrite(ctx)
+    Exists.new(@expr.rewrite(ctx))
   end
 end
 def some(e)
@@ -467,6 +557,9 @@ class Not < Formula
   def to_alloy(ctx=nil)
     enclose("not " + @expr.to_alloy(ctx))
   end
+  def rewrite(ctx)
+    Not.new(@expr.rewrite(ctx))
+  end
 end
 def neg(e)
   Not.new(e)
@@ -481,6 +574,9 @@ class No < Formula
   end
   def to_alloy(ctx=nil)
     enclose("no " + @expr.to_alloy(ctx))
+  end
+  def rewrite(ctx)
+    No.new(@expr.rewrite(ctx))
   end
 end
 def no(e)
@@ -508,6 +604,9 @@ class And < Formula
       enclose(lformula + " and " + rformula)
     end
   end
+  def rewrite(ctx)
+    And.new(@left.rewrite(ctx), @right.rewrite(ctx))
+  end
 end
 def conj(f1, f2)
   And.new(f1, f2)
@@ -528,6 +627,10 @@ class Implies < Formula
 
   def to_alloy(ctx=nil)
     enclose(@left.to_alloy(ctx) + " implies " + @right.to_alloy(ctx))
+  end
+
+  def rewrite(ctx)
+    Implies.new(@left.rewrite(ctx), @right.rewrite(ctx))
   end
 end
 def implies(f1, f2)
@@ -562,6 +665,10 @@ class Or < Formula
     end
     str
   end
+
+  def rewrite(ctx)
+    Or.new(@left.rewrite(ctx), @right.rewrite(ctx))
+  end
 end
 def disj(f1, f2)
   Or.new(f1, f2)
@@ -593,6 +700,10 @@ class Equals < Formula
   def to_alloy(ctx=nil)
     @left.to_alloy(ctx) + " = " + @right.to_alloy(ctx)
   end
+
+  def rewrite(ctx)
+    Equals.new(@left.rewrite(ctx), @right.rewrite(ctx))
+  end
 end
 
 class Pred2App < Formula
@@ -610,6 +721,10 @@ class Pred2App < Formula
     @pred.to_alloy(ctx) + "[" + @a1.to_alloy(ctx) + "," + 
       @a2.to_alloy(ctx) + "]"
   end  
+
+  def rewrite(ctx)
+    Pred2App.new(@pred.rewrite(ctx), @a1.rewrite(ctx), @a2.rewrite(ctx))
+  end
 end
 
 def triggeredBy(t)

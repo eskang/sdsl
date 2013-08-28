@@ -23,8 +23,8 @@ end
 
 bs = mod :MaliciousServer do
   stores :addr, :Addr
-  exports(:httpReq2, 
-          :args => [:addr2])
+  exports(:httpReq, 
+          :args => [:addr])
   invokes(:httpResp)
 end
 
@@ -43,10 +43,6 @@ c = mod :Client do
                          # receives a redirect header from the server
                          conj(triggeredBy(:httpResp),
                               o.addr.eq(trig.redirect)))])
-  invokes(:httpReq2,
-          :when => [disj(conj(triggeredBy(:visit), o.addr2.eq(trig.dest)),
-                         conj(triggeredBy(:httpResp),
-                              o.addr2.eq(trig.redirect)))])
 end
 
 VIEW_OPEN_REDIRECTOR = view :OpenRedirector do

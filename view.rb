@@ -176,12 +176,12 @@ class View
     end
     
     #TODO: This is a hack; need a better way
-    ctx.each do |k, v|
-      if not (k == :op or k == :nesting)
-        alloyChunk = alloyChunk.gsub("(" + k.to_s + ")", 
-                                     "(" + v.to_a.join("+") + ")")
-      end
-    end
+    # ctx.each do |k, v|
+    #   if not (k == :op or k == :nesting)
+    #     alloyChunk = alloyChunk.gsub("(" + k.to_s + ")", 
+    #                                  "(" + v.to_a.join("+") + ")")
+    #   end
+    # end
 
     alloyChunk
   end
@@ -468,8 +468,10 @@ def merge(v1, v2, mapping, opRel)
       c = i.constraints
       relevantExports =
         allExports.select {|e| (n == e.name or
-                                ((not e.parent.nil?) and n == e.parent.name) or
-                                ((not e.child.nil?) and n == e.child.name))}
+                                ((not e.parent.nil?) and 
+                                 n == e.parent.name) or
+                                ((not e.child.nil?) and 
+                                 n == e.child.name))}
       relevantExports.each do |e|
         newInvokes << Op.new(e.name, c)
       end
@@ -482,16 +484,18 @@ def merge(v1, v2, mapping, opRel)
 end
 
 def composeViews(v1, v2, refineRel = {})
+  puts "*** Attempting to merge #{v1.name} and #{v2.name} ***:"
   # Given refinement relations, derive a mapping between elements of two views
   mapping = buildMapping(v1, v2, refineRel)
 
-  pp "*** Intermediate Mapping:"
+#  pp "*** Intermediate Mapping:"
 #  pp mapping
 
   # Construct a new view based on the relations between the two views
   mergeResult = merge(v1, v2, mapping, refineRel[:Op])
 
-  pp "*** Merge Result ***:"
+  puts "*** Successfully merge #{v1.name} and #{v2.name} ***:"
+  puts ""
 #  pp mergeResult
   mergeResult
 end

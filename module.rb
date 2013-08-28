@@ -50,7 +50,7 @@ class Mod
       end
     end
     self.invokes = newInvokes.dup
-    
+ 
     invokes.each do |o|
       n = o.name.to_s
       ctx[:op] = n

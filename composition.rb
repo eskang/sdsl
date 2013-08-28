@@ -23,6 +23,8 @@ mergedView = composeViews(VIEW_OAUTH, VIEW_CSRF,
                           :Data => {
                             :Resource => :Payload
                           })
+drawView mergedView, "merged_oauth.dot"
+dumpAlloy mergedView, "merged_oauth.als"
 
 mergedView2 = composeViews(VIEW_OAUTH, VIEW_OPEN_REDIRECTOR, 
                            :Module => {
@@ -39,6 +41,9 @@ mergedView2 = composeViews(VIEW_OAUTH, VIEW_OPEN_REDIRECTOR,
                            :Data => {
                              :Resource => :Payload
                            })
+drawView mergedView2, "merged_open_redirect_oauth.dot"
+dumpAlloy mergedView2, "merged_open_redirect_oauth.als"
+
 
 mergedView3 = composeViews(VIEW_OAUTH, VIEW_REPLAY, 
                            :Module => {
@@ -55,6 +60,9 @@ mergedView3 = composeViews(VIEW_OAUTH, VIEW_REPLAY,
                            :Data => {
 #                             :Resource => :Packet
                            })
+drawView mergedView3, "merged_replay_oauth.dot"
+dumpAlloy mergedView3, "merged_replay_oauth.als"
+
 
 # # Composition #2
 # mergedView2 = composeViews(V_NETWORK, V_EAVESDROPPER, 
@@ -92,46 +100,51 @@ mergedClient = composeViews(VIEW_OPEN_REDIRECTOR, VIEW_CSRF,
                            },
                            :Op => {
                              :httpReq => :httpReq,
-                             :httpReq2 => :httpReq2,
                              :httpResp => :httpResp,
                              :visit => :visit
                            },
                            :Data => {}
                            )
+drawView mergedClient, "merged_client.dot"
+dumpAlloy mergedClient, "merged_client.als"
 
-mergedView_final = composeViews(VIEW_OAUTH, mergedClient,
+mergedClient_replay = composeViews(mergedClient, VIEW_REPLAY,
+                                   :Module => {
+                                     :TrustedServer => :Endpoint,
+                                     :MaliciousServer => :Endpoint,
+                                     :Client => :Endpoint
+                                   },
+                                   :Op => {
+                                     :httpReq => :deliver,
+                                     :httpResp => :deliver,
+                                     :visit => :visit
+                                   },
+                                   :Data => {}
+                                   )
+drawView mergedClient_replay, "merged_client_replay.dot"
+dumpAlloy mergedClient_replay, "merged_client_replay.als"
+
+mergedView_final = composeViews(VIEW_OAUTH, mergedClient_replay,
                            :Module => {
-                             :ClientApp => :Client,
-                             :AuthorizationServer => :TrustedServer,
-                             :ResourceOwner => :TrustedServer,
-                             :ResourceServer => :TrustedServer},
+                             :ClientApp => :Client_Endpoint,
+                             :AuthorizationServer => :TrustedServer_Endpoint,
+                             :ResourceOwner => :TrustedServer_Endpoint,
+                             :ResourceServer => :TrustedServer_Endpoint},
                            :Op => {
-                             :reqAccessToken => :httpReq,
-                             :sendResp => :httpResp,
-                             :reqAuth => :httpReq,
-                             :reqRes => :httpReq
+                             :reqAccessToken => :httpReq_deliver,
+                             :sendResp => :httpResp_deliver,
+                             :reqAuth => :httpReq_deliver,
+                             :reqRes => :httpReq_deliver
                            }, 
                            :Data => {
-                             :Resource => :Payload
+#                             :Resource => :Payload
                            })
-
-drawView mergedView, "merged1_oauth.dot"
-dumpAlloy mergedView, "merged1_oauth.als"
 
 # drawView mergedView2, "merged2_network.dot"
 # dumpAlloy mergedView2, "merged2_network.als"
 
-drawView mergedView2, "merged2_oauth.dot"
-dumpAlloy mergedView2, "merged2_oauth.als"
-
-drawView mergedView3, "merged3_oauth.dot"
-dumpAlloy mergedView3, "merged3_oauth.als"
-
-drawView mergedClient, "merged_client.dot"
-dumpAlloy mergedClient, "merged_client.als"
-
-drawView mergedView_final, "merged_final_oauth.dot"
-dumpAlloy mergedView_final, "merged_final_oauth.als"
+drawView mergedView_final, "merged_final.dot"
+dumpAlloy mergedView_final, "merged_final.als"
 
 #pp VIEW_OAUTH
 #dumpAlloy VIEW_OAUTH

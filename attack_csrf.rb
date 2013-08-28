@@ -28,10 +28,10 @@ badServer = mod :MaliciousServer do
   stores :addr, :Addr
   creates :DOM       # some malicious DOM
   creates :Payload
-  exports(:httpReq2,
-          :args => [set(:headers2, :Data), :addr2])
+  exports(:httpReq,
+          :args => [set(:headers, :Data), :addr])
   invokes(:httpResp,
-          :when => [triggeredBy :httpReq2])
+          :when => [triggeredBy :httpReq])
 end
 
 goodClient = mod :Client do
@@ -57,11 +57,6 @@ goodClient = mod :Client do
                                 o.addr.eq(trig.respHeaders.srcTag)]
                                ))
                          ])
-  invokes(:httpReq2,
-          :when => [conj(triggeredBy(:visit), o.addr2.eq(trig.dest)),  
-                    implies(some(:cookies[o.addr2]),
-                            o.headers2.contains(:cookies[o.addr2])),
-                    no(intersect(arg(:headers2), :Payload))])
 end
 
 dom = datatype :DOM do
