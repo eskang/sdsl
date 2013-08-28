@@ -10,20 +10,35 @@
 <defaultedge/>
 
 <node>
+   <type name="AccessToken"/>
    <type name="Addr"/>
-   <type name="Client"/>
+   <type name="AuthGrant"/>
+   <type name="AuthorizationServer_TrustedServer_Endpoint"/>
+   <type name="Channel"/>
+   <type name="ClientApp_Client_Endpoint"/>
    <type name="Cookie"/>
+   <type name="Credential"/>
    <type name="DOM"/>
+   <type name="Eavesdropper"/>
+   <type name="emit"/>
    <type name="HTTPHeader"/>
-   <type name="httpReq"/>
-   <type name="httpReq2"/>
-   <type name="httpResp"/>
+   <type name="httpReq_deliver"/>
    <type name="Int"/>
-   <type name="MaliciousServer"/>
+   <type name="MaliciousServer_Endpoint"/>
    <type name="OtherData"/>
+   <type name="OtherHTTPHeader"/>
+   <type name="Packet"/>
    <type name="Payload"/>
+   <type name="probe"/>
+   <type name="reqAccessToken_httpReq_deliver"/>
+   <type name="reqAuth_httpReq_deliver"/>
+   <type name="reqRes_httpReq_deliver"/>
+   <type name="Resource"/>
+   <type name="ResourceOwner_TrustedServer_Endpoint"/>
+   <type name="ResourceServer_TrustedServer_Endpoint"/>
+   <type name="sendResp_httpResp_deliver"/>
    <type name="String"/>
-   <type name="TrustedServer"/>
+   <type name="transmit"/>
    <type name="univ"/>
    <type name="User"/>
    <type name="visit"/>
@@ -32,8 +47,6 @@
    <type name="crypto/Key"/>
    <type name="seq/Int"/>
    <type name="basic/SO/Ord"/>
-   <set name="$Confidentiality_m" type="basic/Module"/>
-   <set name="$Confidentiality_t" type="basic/Step"/>
    <set name="First" type="basic/SO/Ord"/>
    <set name="Next" type="basic/SO/Ord"/>
    <set name="pre" type="basic/Op"/>
@@ -86,8 +99,19 @@
 </edge>
 
 <edge visible="no" attribute="yes">
+   <relation name="addr"> <type name="AuthorizationServer_TrustedServer_Endpoint"/> <type name="Addr"/> </relation>
+   <relation name="addr"> <type name="httpReq_deliver"/> <type name="basic/Data"/> </relation>
+   <relation name="addr"> <type name="MaliciousServer_Endpoint"/> <type name="Addr"/> </relation>
+   <relation name="addr"> <type name="reqAccessToken_httpReq_deliver"/> <type name="basic/Data"/> </relation>
+   <relation name="addr"> <type name="reqAuth_httpReq_deliver"/> <type name="basic/Data"/> </relation>
+   <relation name="addr"> <type name="reqRes_httpReq_deliver"/> <type name="basic/Data"/> </relation>
+   <relation name="addr"> <type name="ResourceOwner_TrustedServer_Endpoint"/> <type name="Addr"/> </relation>
+   <relation name="addr"> <type name="ResourceServer_TrustedServer_Endpoint"/> <type name="Addr"/> </relation>
    <relation name="args"> <type name="basic/Op"/> <type name="basic/Data"/> </relation>
    <relation name="creates"> <type name="basic/Module"/> <type name="basic/Data"/> </relation>
+   <relation name="protected"> <type name="AuthorizationServer_TrustedServer_Endpoint"/> <type name="basic/Op"/> </relation>
+   <relation name="protected"> <type name="ResourceOwner_TrustedServer_Endpoint"/> <type name="basic/Op"/> </relation>
+   <relation name="protected"> <type name="ResourceServer_TrustedServer_Endpoint"/> <type name="basic/Op"/> </relation>
    <relation name="trigger"> <type name="basic/Op"/> <type name="basic/Op"/> </relation>
 </edge>
 

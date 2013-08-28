@@ -291,18 +291,14 @@ class SymbolExpr < Expr
     @e.to_s
   end
   def to_alloy(ctx=nil)
-    if ctx.has_key? @e
-      ctx[@e].to_a.join(" + ")
-    else 
-      @e.to_s
-    end
+    @e.to_s
   end
   def rewrite(ctx)
     if ctx.has_key? @e
       tmp = nil
       ctx[@e].to_a.each do |e2|
         if tmp == nil
-          tmp = SymbolExpr.new(op(e2))
+          tmp = SymbolExpr.new(e2)
         else 
           tmp = Union.new(tmp, op(e2))
         end
@@ -338,29 +334,26 @@ class FuncApp < Expr
 end
 
 class OpExpr < Expr
-  def initialize(e)
+  def initialize(e)  
+    if not e.is_a? Symbol
+      raise "WRONG!!!"
+    end
     @e = e
   end
   def to_s
     @e.to_s
   end
+
   def to_alloy(ctx=nil)
-    if ctx.has_key? @e 
-      expr = ctx[@e].to_a.join(" + ")
-      if ctx[@e].count > 1
-        expr = enclose(expr)
-      end
-    else
-      expr = @e.to_s
-    end
-    expr
+    @e.to_s
   end
+
   def rewrite(ctx)
     if ctx.has_key? @e
       tmp = nil
       ctx[@e].to_a.each do |e2|
         if tmp == nil
-          tmp = OpExpr.new(op(e2))
+          tmp = OpExpr.new(e2)
         else 
           tmp = Union.new(tmp, op(e2))
         end
@@ -491,6 +484,12 @@ class Formula
   def then other
     Implies.new(self, other)
   end
+
+  def ==(other)
+    other.equal?(self) ||
+    (other.instance_of?(self.class) && 
+     other.to_s == self.to_s)
+  end
 end
 
 class AlloyFormula < Formula
@@ -502,11 +501,6 @@ class AlloyFormula < Formula
     exp
   end
   def to_alloy(ctx=nil)
-    if not ctx.nil?
-      exp = @exp.gsub(/o\.\b(\w+)\b/) {|c|         
-        p =  c.split('.')[1]
-        "o.((#{ctx[:op]}) <: " + p + ")"}
-    end
     exp
   end
   def rewrite(ctx)
@@ -600,10 +594,13 @@ class And < Formula
   def to_alloy(ctx=nil)
     lformula = left.to_alloy(ctx)
     rformula = right.to_alloy(ctx)
+
     if lformula == UNIT or rformula == UNIT
       if lformula == UNIT then expr = enclose(rformula) end
       if rformula == UNIT then expr = enclose(lformula) end
       expr
+    elsif lformula == rformula
+      lformula
     else      
       enclose(lformula + " and " + rformula)
     end
@@ -612,6 +609,7 @@ class And < Formula
   def rewrite(ctx)
     And.new(@left.rewrite(ctx), @right.rewrite(ctx))
   end
+
 end
 def conj(f1, f2)
   And.new(f1, f2)
@@ -657,9 +655,12 @@ class Or < Formula
     ctx[:nesting] += 1
     lformula = left.to_alloy(ctx)
     rformula = right.to_alloy(ctx)
+
     ctx[:nesting] -= 1
     if lformula == UNIT or rformula == UNIT
       raise "An invalid OR expression: OR(" + lformula + "," + rformula + ")"
+    elsif lformula == rformula
+      str = lformula
     else
       str = wrap("")
       str += wrap("(#{lformula}", ctx[:nesting] + 1)
@@ -723,7 +724,7 @@ class Pred2App < Formula
   end
 
   def to_alloy(ctx=nil)
-    @pred.to_alloy(ctx) + "[" + @a1.to_alloy(ctx) + "," + 
+     @pred.to_alloy(ctx) + "[" + @a1.to_alloy(ctx) + "," + 
       @a2.to_alloy(ctx) + "]"
   end  
 

@@ -416,10 +416,14 @@ def merge(v1, v2, mapping, opRel)
   end
   
   (v1.modules + v2.modules).each do |m| 
+    if not ctx.has_key? m.name then ctx[m.name] = Set.new([]) end
+
     if mapping.has_key? m 
       modules << mapping[m]
+      ctx[m.name].add(mapping[m].name)
     else
       modules << m.clone
+      ctx[m.name].add(m.name)
     end
   end
   modules = myuniq(modules)
@@ -474,26 +478,22 @@ def merge(v1, v2, mapping, opRel)
 
   # rewrite all of the constraints with the context info
   modules.each do |m|
-    newExports = []
-    m.exports.each do |e|
-      newExports << Op.new(e.name, 
-                           :args => e.constraints[:args].clone,
-                           :when => 
-                           e.constraints[:when].map{ |c| c.rewrite(ctx) })
-    end
-    m.exports = newExports
-
-    newInvokes = []
-    m.invokes.each do |i|
-      newInvokes << Op.new(i.name, 
-                           :when =>
-                           i.constraints[:when].map{ |c| c.rewrite(ctx) })
-    end
-    m.invokes = newInvokes
+    m.exports = 
+      m.exports.map { |e| Op.new(e.name, 
+                                 :args => e.constraints[:args].clone,
+                                 :when => 
+                                 e.constraints[:when].map{ |c| c.rewrite(ctx) })}    
+    m.invokes = 
+      m.invokes.map { |i| Op.new(i.name, 
+                                 :when =>
+                                 i.constraints[:when].map{ |c| c.rewrite(ctx) })}
+    m.assumptions = m.assumptions.map { |a| a.rewrite(ctx) }
   end
 
+  assumptions = (v1.assumptions + v2.assumptions).map { |a| a.rewrite(ctx) }
+  
   View.new(:MergedView, modules, trusted, data, v1.critical, 
-           v1.assumptions + v2.assumptions, v1.protected, ctx)
+           assumptions, v1.protected, ctx)
 end
 
 def composeViews(v1, v2, refineRel = {})
