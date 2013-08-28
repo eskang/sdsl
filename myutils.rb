@@ -301,10 +301,10 @@ class SymbolExpr < Expr
     if ctx.has_key? @e
       tmp = nil
       ctx[@e].to_a.each do |e2|
-        if tmp = nil
-          tmp = SymbolExpr.new(e2)
+        if tmp == nil
+          tmp = SymbolExpr.new(op(e2))
         else 
-          tmp = Union.new(tmp, e2)
+          tmp = Union.new(tmp, op(e2))
         end
       end
       tmp
@@ -359,10 +359,10 @@ class OpExpr < Expr
     if ctx.has_key? @e
       tmp = nil
       ctx[@e].to_a.each do |e2|
-        if tmp = nil
-          tmp = OpExpr.new(e2)
+        if tmp == nil
+          tmp = OpExpr.new(op(e2))
         else 
-          tmp = Union.new(tmp, e2)
+          tmp = Union.new(tmp, op(e2))
         end
       end
       tmp
@@ -380,12 +380,15 @@ class Union < Expr
     @e1 = e1
     @e2 = e2
   end
+
   def to_s
     @e1.to_s + " \\/ " + @e2.to_s
   end
+
   def to_alloy(ctx=nil)
     enclose(@e1.to_alloy(ctx) + " + " + @e2.to_alloy(ctx))
   end
+
   def rewrite(ctx)
     Union.new(@e1.rewrite(ctx), @e2.rewrite(ctx))
   end
@@ -447,7 +450,7 @@ class Join < Expr
     e2 = @col.to_alloy(ctx)
     if e1 == "o"
       if not UNIVERSAL_FIELDS.include? e2
-        e2 = "(" + ctx[:op] + " <: " + e2 + ")"
+        e2 = "(#{ctx[:op]} <: " + e2 + ")"
       end
     end
     e1 + "." + e2
@@ -502,7 +505,7 @@ class AlloyFormula < Formula
     if not ctx.nil?
       exp = @exp.gsub(/o\.\b(\w+)\b/) {|c|         
         p =  c.split('.')[1]
-        "o.((" + ctx[:op] + ") <: " + p + ")"}
+        "o.((#{ctx[:op]}) <: " + p + ")"}
     end
     exp
   end
@@ -525,7 +528,7 @@ class Unit < Formula
     UNIT
   end
   def rewrite(ctx)
-    Unit
+    self
   end
 end
 
@@ -589,6 +592,7 @@ class And < Formula
     @left = f1
     @right = f2
   end
+
   def to_s
     "And(" + left.to_s + "," + right.to_s + ")"
   end
@@ -604,6 +608,7 @@ class And < Formula
       enclose(lformula + " and " + rformula)
     end
   end
+
   def rewrite(ctx)
     And.new(@left.rewrite(ctx), @right.rewrite(ctx))
   end
@@ -611,7 +616,7 @@ end
 def conj(f1, f2)
   And.new(f1, f2)
 end
-def conjs(*fs)
+def conjs(fs)
   fs.inject(Unit.new) { |r, e| And.new(r, e) }
 end
 

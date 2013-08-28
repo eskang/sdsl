@@ -30,19 +30,7 @@ class View
     ctx[:nesting] = 0
 
     alloyChunk = ""
-    
-    # all exported operations
-    allExports = modules.inject([]) {|r, m| r + m.exports}   
-    # all invoked operations
-    allInvokes = modules.inject([]) {|r, m| r + m.invokes.map {|i| i.name}}
-    allInvokes.each do |i|
-      if not ctx.has_key? i then ctx[i] = Set.new([]) end
-      ctx[i].merge( allExports.select {|e| 
-                      (i == e.name or 
-                       ((not e.parent.nil?) and i == e.parent.name) or 
-                       ((not e.child.nil?) and i == e.child.name))}.map {|e| e.name.to_s})
-    end
-
+   
     modules.each do |m|
       modn = m.name.to_s
       alloyChunk += wrap(m.to_alloy(ctx))
@@ -416,9 +404,9 @@ def merge(v1, v2, mapping, opRel)
 
   opRel.each do |from, to|
     if from == to 
-      o = from.to_s
+      o = from
     else 
-      o = mkMixedName(from, to).to_s
+      o = mkMixedName(from, to)
     end
 
     if ctx[from].nil? then ctx[from] = Set.new() end
@@ -426,7 +414,7 @@ def merge(v1, v2, mapping, opRel)
     ctx[from].add(o)
     ctx[to].add(o)
   end
-
+  
   (v1.modules + v2.modules).each do |m| 
     if mapping.has_key? m 
       modules << mapping[m]
@@ -475,6 +463,31 @@ def merge(v1, v2, mapping, opRel)
       relevantExports.each do |e|
         newInvokes << Op.new(e.name, c)
       end
+      
+      # update the context
+      if not ctx.has_key? n then ctx[n] = Set.new([]) end
+      ctx[n].merge(relevantExports.map {|e| e.name})
+      
+    end
+    m.invokes = newInvokes
+  end
+
+  # rewrite all of the constraints with the context info
+  modules.each do |m|
+    newExports = []
+    m.exports.each do |e|
+      newExports << Op.new(e.name, 
+                           :args => e.constraints[:args].clone,
+                           :when => 
+                           e.constraints[:when].map{ |c| c.rewrite(ctx) })
+    end
+    m.exports = newExports
+
+    newInvokes = []
+    m.invokes.each do |i|
+      newInvokes << Op.new(i.name, 
+                           :when =>
+                           i.constraints[:when].map{ |c| c.rewrite(ctx) })
     end
     m.invokes = newInvokes
   end

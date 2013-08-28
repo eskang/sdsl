@@ -26,30 +26,30 @@ class Mod
 
     ctx[:nesting] = 1
     exports.each do |o|
-      n = o.name.to_s
+      n = o.name
       ctx[:op] = n
       # receiver constraint
       # export constraint
       o.constraints[:when].each do |c|
-        f = "all o : this.receives[" + n + "] | " + c.to_alloy(ctx)
+        f = "all o : this.receives[" + n.to_s + "] | " + c.to_alloy(ctx)
         sigfacts << f        
       end
     end
 
-    newInvokes = []
-    invokes.each do |o|
-      n = o.name
-      # replace the invoked op with the set of all replaced ops
-      if not (ctx[n].count == 1 and ctx[n].include? n.to_s)
-        ctx[n].each do |newOpName|           
-          newInvokes << Op.new(newOpName.to_sym, 
-                               :when => o.constraints[:when])
-        end
-      else
-        newInvokes << o
-      end
-    end
-    self.invokes = newInvokes.dup
+    # newInvokes = []
+    # invokes.each do |o|
+    #   n = o.name
+    #   # replace the invoked op with the set of all replaced ops
+    #   if not (ctx[n].count == 1 and ctx[n].include? n.to_s)
+    #     ctx[n].each do |newOpName|           
+    #       newInvokes << Op.new(newOpName.to_sym, 
+    #                            :when => o.constraints[:when])
+    #     end
+    #   else
+    #     newInvokes << o
+    #   end
+    # end
+    # self.invokes = newInvokes.dup
  
     invokes.each do |o|
       n = o.name.to_s
