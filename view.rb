@@ -132,7 +132,7 @@ class View
       if creators.has_key? dn
         dataFacts << "creates.#{dn} in " + creators[dn].join(" + ")
       else 
-        if critical.include? d
+        if critical.any? { |c| c.name == dn }
           dataFacts << "no creates.#{dn}"
         end
       end     
@@ -153,7 +153,7 @@ class View
     if not critical.empty?
       alloyChunk += writeFacts("criticalDataFacts", 
                                ["CriticalData = " + 
-                                critical.map { |d| d.to_s }.
+                                critical.map { |d| d.name.to_s }.
                                 join(" + ")])
     end
 
@@ -198,7 +198,13 @@ class ViewBuilder
   end
 
   def critical(*data)
-    @critical += data
+    @critical += data.map { |d| 
+      if d.is_a? Datatype
+        d
+      else
+        Datatype.new(d, [], :Data, false)
+      end
+    }
   end
 
   def modules(*mods)
@@ -269,10 +275,8 @@ def refineInvokes(sup, sub, opRel)
       if not matches.empty?
         o2 = matches[0]     
         invokes << Op.new(mkMixedName(n, o2.name), 
-                          {:when => (o.constraints[:when] + 
-                                     o2.constraints[:when])},
+                          {:when => (o.constraints[:when])},
                           o, o2)
-        subInvokes.delete(o2)
         next
       end
     end
@@ -286,6 +290,7 @@ def abstractExports(m1, m2, opRel)
   m2Exports = m2.exports.dup
   m1.exports.each do |o|
     n = o.name
+
     if opRel.has_key? n 
       matches = m2.exports.select { |o2| o2.name == opRel[n] }      
       if not matches.empty?
@@ -299,6 +304,7 @@ def abstractExports(m1, m2, opRel)
         next
       end
     end
+
     exports << o
   end  
   exports + m2Exports  
@@ -307,11 +313,13 @@ end
 def abstractInvokes(m1, m2, opRel)
   invokes = []
   m2Invokes = m2.invokes.dup
+
   m1.invokes.each do |o|
     n = o.name
     
     if opRel.has_key? n 
-      matches = m2.invokes.select { |o2| o2.name == opRel[n] }    
+      matches = m2.invokes.select { |o2| o2.name == opRel[n] } 
+
       if not matches.empty?
         o2 = matches[0]     
         invokes << Op.new(n, #mkMixedName(n, o2.name),
@@ -322,8 +330,10 @@ def abstractInvokes(m1, m2, opRel)
         next
       end
     end
+
     invokes << o
   end
+
   invokes + m2Invokes
 end
 
@@ -408,7 +418,6 @@ def merge(v1, v2, mapping, opRel)
     else 
       o = mkMixedName(from, to)
     end
-
     if ctx[from].nil? then ctx[from] = Set.new() end
     if ctx[to].nil? then ctx[to] = Set.new() end    
     ctx[from].add(o)
@@ -452,8 +461,9 @@ def merge(v1, v2, mapping, opRel)
 
   # all exported operations
   allExports = modules.inject([]) {|r, m| r + m.exports}
-  
+ 
   modules.each do |m|
+
     newInvokes = []
     m.invokes.each do |i|
       n = i.name
@@ -464,16 +474,17 @@ def merge(v1, v2, mapping, opRel)
                                  n == e.parent.name) or
                                 ((not e.child.nil?) and 
                                  n == e.child.name))}
+
       relevantExports.each do |e|
         newInvokes << Op.new(e.name, c)
       end
-      
+          
       # update the context
       if not ctx.has_key? n then ctx[n] = Set.new([]) end
-      ctx[n].merge(relevantExports.map {|e| e.name})
-      
+      ctx[n].merge(relevantExports.map {|e| e.name})      
     end
-    m.invokes = newInvokes
+
+    m.invokes = myuniq(newInvokes)
   end
 
   # rewrite all of the constraints with the context info

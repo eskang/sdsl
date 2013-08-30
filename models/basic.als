@@ -14,19 +14,19 @@ abstract sig Module {
 	accesses : Data -> Step,
 	creates : set Data,
 }{
-	creates.fields in creates
+	creates.^fields in creates
 
 	all d : Data, t : Step |
 		d in accesses.t implies {
 			(t not in SO/first and d in accesses.(t.prev)) or
-			(t in SO/first and d in (creates + creates.fields)) or
+			(t in SO/first and d in (creates + creates.^fields)) or
 			some m2 : Module - this | flows[m2, this, d, t]
 		}
 }
 pred flows[from, to : Module, d : Data, t : Step] {
 	(some o : SuccessOp {
 		t = o.post
-		((from = o.sender and to = o.receiver and d in (o.args + o.args.fields)))
+		((from = o.sender and to = o.receiver and d in (o.args + o.args.^fields)))
 	})
 }
 
@@ -42,7 +42,7 @@ abstract sig Op {
 	receiver : lone Module,
 	args : set Data
 }{
-	(args + args.fields) in sender.accesses.pre
+	(args + args.^fields) in sender.accesses.pre
 	post = pre.next
 	pre = SO/first implies no trigger
 	some trigger implies {
@@ -91,6 +91,6 @@ pred Integrity {
 }
 
 fun arg[d : Data] : set Data {
-	d + d.fields
+	d + d.^fields
 }
 

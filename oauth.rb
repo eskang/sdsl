@@ -7,7 +7,7 @@ resOwner = mod :ResourceOwner do
   stores :authGrants, :Credential, :AuthGrant
   creates :AuthGrant
   exports(:reqAuth, 
-          :args => [:cred], 
+          :args => [item(:cred, :Credential)], 
           # must include a valid credential 
           :when => [hasKey(:authGrants, arg(:cred))])
   invokes(:sendResp, 
@@ -24,14 +24,14 @@ client = mod :ClientApp do
   invokes :reqAuth
   invokes :reqRes
   invokes :reqAccessToken
-  exports :sendResp, :args => [:data]
+  exports :sendResp, :args => [set(:data,:Payload)]
 end
 
 authServer = mod :AuthorizationServer do
   stores :accessTokens, :AuthGrant, :AccessToken
   creates :AccessToken
   exports(:reqAccessToken, 
-          :args => [:authGrant], 
+          :args => [item(:authGrant, :AuthGrant)], 
           # must include a valid authorization grant
           :when => [hasKey(:accessTokens, o.authGrant)])
   invokes(:sendResp, 
@@ -46,7 +46,7 @@ resServer = mod :ResourceServer do
   stores :resources, :AccessToken, :Resource
   creates :Resource
   exports(:reqRes, 
-          :args => [:accessToken],
+          :args => [item(:accessToken, :AccessToken)],
           # must include a valid access token
           :when => [hasKey(:resources, arg(:accessToken))])
   invokes(:sendResp,
@@ -57,10 +57,18 @@ resServer = mod :ResourceServer do
                     :resources[trig.accessToken].eq(o.data)])
 end
 
+# data definitions
+authGrant = datatype :AuthGrant do extends :Payload end
+accessToken = datatype :AccessToken do extends :Payload end
+credential = datatype :Credential do extends :Payload end
+resource = datatype :Resource do extends :Payload end
+otherPayload = datatype :OtherPayload do extends :Payload end
+payload = datatype :Payload do setAbstract end
+
 VIEW_OAUTH = view :OAuth do 
   modules resOwner, client, authServer, resServer
-  data :Credential, :AuthGrant, :AccessToken, :Resource
-  critical :Resource
+  data credential, authGrant, accessToken, resource, otherPayload, payload
+  critical resource
   trusted resOwner, client, authServer, resServer
 end
 

@@ -39,7 +39,6 @@ mergedView2 = composeViews(VIEW_OAUTH, VIEW_OPEN_REDIRECTOR,
                              :reqRes => :httpReq
                            }, 
                            :Data => {
-                             :Resource => :Payload
                            })
 drawView mergedView2, "merged_open_redirect_oauth.dot"
 dumpAlloy mergedView2, "merged_open_redirect_oauth.als"
@@ -93,18 +92,20 @@ dumpAlloy mergedView3, "merged_replay_oauth.als"
 # Composition #4
 mergedClient = composeViews(VIEW_OPEN_REDIRECTOR, VIEW_CSRF,
                             :Module => {
-                             :User => :User,
-                             :TrustedServer => :TrustedServer,
-                             :MaliciousServer => :MaliciousServer,
+                              :User => :User,
+                              :TrustedServer => :TrustedServer,
+                              :MaliciousServer => :MaliciousServer,
                              :Client => :Client
-                           },
-                           :Op => {
-                             :httpReq => :httpReq,
-                             :httpResp => :httpResp,
-                             :visit => :visit
-                           },
-                           :Data => {}
-                           )
+                            },
+                            :Op => {
+                              :httpReq => :httpReq,
+                              :httpResp => :httpResp,
+                              :visit => :visit
+                            },
+                            :Data => {
+                              :Addr => :URL
+                            }
+                            )
 drawView mergedClient, "merged_client.dot"
 dumpAlloy mergedClient, "merged_client.als"
 

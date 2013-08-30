@@ -1,4 +1,4 @@
-# attack_eavesdropper.rb
+# attack_replay.rb
 # model of a network replay attacker
 #
 
