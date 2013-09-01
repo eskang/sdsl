@@ -15,6 +15,10 @@ class View
     (data.select { |d| d.name == s})[0]
   end
 
+  def findModsWithExport n
+    (modules.select { |m| m.exports.any? { |e| e.name == n }})
+  end
+
   def to_alloy
     # type: opname -> list(modules)
     invokers = {}
@@ -242,13 +246,13 @@ def mkMixedName(sup, sub)
   (sup.to_s + "_" + sub.to_s).to_sym
 end
 
-def refineExports(sup, sub, opRel) 
+def refineExports(sup, sub, exportsRel) 
   exports = []
   subExports = sub.exports.dup
   sup.exports.each do |o|
     n = o.name
-    if opRel.has_key? n 
-      matches = sub.exports.select { |o2| o2.name == opRel[n] }      
+    if exportsRel.has_key? n 
+      matches = sub.exports.select { |o2| o2.name == exportsRel[n] }      
       if not matches.empty?
         o2 = matches[0]   
         exports << Op.new(mkMixedName(n, o2.name), 
@@ -265,34 +269,37 @@ def refineExports(sup, sub, opRel)
   exports + subExports
 end
 
-def refineInvokes(sup, sub, opRel)
+def refineInvokes(sup, sub, invokesRel)
   invokes = []
   subInvokes = sub.invokes.dup
   sup.invokes.each do |o|
     n = o.name
-    if opRel.has_key? n 
-      matches = sub.invokes.select { |o2| o2.name == opRel[n] }    
+
+    if invokesRel.has_key? n 
+      matches = sub.invokes.select { |o2| o2.name == invokesRel[n] }    
+
       if not matches.empty?
-        o2 = matches[0]     
+        o2 = matches[0]    
         invokes << Op.new(mkMixedName(n, o2.name), 
-                          {:when => (o.constraints[:when])},
-                          o, o2)
+                          {:when => (o.constraints[:when] + 
+                                     o2.constraints[:when])},
+                          o, o2)  
         next
       end
     end
     invokes << o
-  end
+  end  
   invokes + subInvokes
 end
 
-def abstractExports(m1, m2, opRel)
+def abstractExports(m1, m2, exportsRel)
   exports = []
   m2Exports = m2.exports.dup
   m1.exports.each do |o|
     n = o.name
 
-    if opRel.has_key? n 
-      matches = m2.exports.select { |o2| o2.name == opRel[n] }      
+    if exportsRel.has_key? n 
+      matches = m2.exports.select { |o2| o2.name == exportsRel[n] }      
       if not matches.empty?
         o2 = matches[0]   
         exports << Op.new(n, #mkMixedName(n, o2.name), 
@@ -310,15 +317,15 @@ def abstractExports(m1, m2, opRel)
   exports + m2Exports  
 end
 
-def abstractInvokes(m1, m2, opRel)
+def abstractInvokes(m1, m2, invokesRel)
   invokes = []
   m2Invokes = m2.invokes.dup
 
   m1.invokes.each do |o|
     n = o.name
     
-    if opRel.has_key? n 
-      matches = m2.invokes.select { |o2| o2.name == opRel[n] } 
+    if invokesRel.has_key? n 
+      matches = m2.invokes.select { |o2| o2.name == invokesRel[n] } 
 
       if not matches.empty?
         o2 = matches[0]     
@@ -340,11 +347,11 @@ end
 # sup is the module being refined
 # sub is the module refining
 # sup is a supertype of sub
-def refineMod(sup, sub, opRel)
+def refineMod(sup, sub, exportsRel, invokesRel)
   name = mkMixedName(sup.name, sub.name)
   # refinement
-  exports = refineExports(sup, sub, opRel)  
-  invokes = refineInvokes(sup, sub, opRel)
+  exports = refineExports(sup, sub, exportsRel)  
+  invokes = refineInvokes(sup, sub, invokesRel)
   assumptions = sub.assumptions + sup.assumptions
   stores = sub.stores + sup.stores
   creates = sub.creates + sup.creates
@@ -356,11 +363,11 @@ def refineMod(sup, sub, opRel)
           extends, isAbstract, isUniq)
 end
 
-def mergeMod(m1, m2, opRel)
+def mergeMod(m1, m2, exportsRel, invokesRel)
   name = m1.name #mkMixedName(m1.name, m2.name)
   # abstraction
-  exports = abstractExports(m1, m2, opRel)  
-  invokes = abstractInvokes(m1, m2, opRel)
+  exports = abstractExports(m1, m2, exportsRel)  
+  invokes = abstractInvokes(m1, m2, invokesRel)
   assumptions = m2.assumptions + m1.assumptions
   stores = myuniq(m2.stores + m1.stores)
   creates = m2.creates + m1.creates
@@ -372,14 +379,15 @@ def mergeMod(m1, m2, opRel)
           extends, isAbstract, isUniq)
 end
 
-def buildMapping(v1, v2, refinementRel)
+def buildMapping(v1, v2, refineRel)
   dataMap = {}
   opMap = {}
   moduleMap = {}
   
-  opRel = refinementRel[:Op]
+  exportsRel = refineRel[:Exports]
+  invokesRel = refineRel[:Invokes]
 
-  dataRel = refinementRel[:Data]
+  dataRel = refineRel[:Data]
   dataRel.each do |from, to|
     sub = v1.findData(from)
     sup = v2.findData(to)    
@@ -387,14 +395,14 @@ def buildMapping(v1, v2, refinementRel)
     dataMap[to] = Datatype.new(sup.name, sup.fields, :Data, true)
   end
 
-  modRel = refinementRel[:Module]
+  modRel = refineRel[:Module]
   modRel.each do |from, to|
     sup = v1.findMod(from)
     sub = v2.findMod(to)
     if sup.name == sub.name      
-      newMod = mergeMod(sup, sub, opRel)
+      newMod = mergeMod(sup, sub, exportsRel, invokesRel)
     else
-      newMod = refineMod(sup, sub, opRel)
+      newMod = refineMod(sup, sub, exportsRel, invokesRel)
     end
     moduleMap[sup] = newMod
     sup.isAbstract = true
@@ -408,11 +416,28 @@ end
 # 1. map from each datatype in (v1 + v2) to a dataype 
 # 2. map from each operation in (v1 + v2) to an operation
 # 3. map from each module in (v1 + v2) to a module
-def merge(v1, v2, mapping, opRel)
+def merge(v1, v2, mapping, refineRel)
+  modRel = refineRel[:Module]
+  exportsRel = refineRel[:Exports]
+  invokesRel = refineRel[:Invokes]
   modules = []
   ctx = {}
+  opRel = {}
 
-  opRel.each do |from, to|
+  (v1.modules + v2.modules).each do |m| 
+    if not ctx.has_key? m.name then ctx[m.name] = Set.new([]) end
+
+    if mapping.has_key? m 
+      modules << mapping[m]
+      ctx[m.name].add(mapping[m].name)
+    else
+      modules << m.deepclone
+      ctx[m.name].add(m.name)
+    end
+  end
+  modules = myuniq(modules)
+
+  exportsRel.each do |from, to|
     if from == to 
       o = from
     else 
@@ -422,20 +447,30 @@ def merge(v1, v2, mapping, opRel)
     if ctx[to].nil? then ctx[to] = Set.new() end    
     ctx[from].add(o)
     ctx[to].add(o)
-  end
-  
-  (v1.modules + v2.modules).each do |m| 
-    if not ctx.has_key? m.name then ctx[m.name] = Set.new([]) end
+  end  
 
-    if mapping.has_key? m 
-      modules << mapping[m]
-      ctx[m.name].add(mapping[m].name)
-    else
-      modules << m.clone
-      ctx[m.name].add(m.name)
+  invokesRel.each do |from, to|
+    if from == to then next end
+    o = mkMixedName(from, to)
+    if modules.any? { |m| m.findExport(o) } then next end
+
+    o1 = v1.findModsWithExport(from)[0].findExport(from)  
+
+    modules.each do |m| 
+      if m.findExport o or not (m.findExport to) then next end
+      o2 = m.findExport to     
+      m.exports << Op.new(mkMixedName(from, to),
+                          {:when => (o2.constraints[:when]),
+                            :args => (o1.constraints[:args] + 
+                                      o2.constraints[:args])}, o1, o2)
+      # simplification
+      # if m1.invokes op1, op2 in m2 and op1 is a specialization of op2, 
+      # then remove op2 from m1.invokes
+      modules.select { |m2| m2.findInvoke o and m2.findInvoke to}.each do |m2|
+        m2.invokes.delete(m2.findInvoke to)
+      end 
     end
   end
-  modules = myuniq(modules)
 
   # trusted modules
   trusted = (v1.trusted + v2.trusted).map{ |m| if mapping.has_key? m then 
@@ -465,7 +500,8 @@ def merge(v1, v2, mapping, opRel)
   modules.each do |m|
 
     newInvokes = []
-    m.invokes.each do |i|
+
+    m.invokes.each do |i|      
       n = i.name
       c = i.constraints
       relevantExports =
@@ -516,7 +552,7 @@ def composeViews(v1, v2, refineRel = {})
 #  pp mapping
 
   # Construct a new view based on the relations between the two views
-  mergeResult = merge(v1, v2, mapping, refineRel[:Op])
+  mergeResult = merge(v1, v2, mapping, refineRel)
 
   puts "*** Successfully merge #{v1.name} and #{v2.name} ***:"
   puts ""

@@ -17,12 +17,17 @@ abstract sig Module {
 	creates.^fields in creates
 
 	all d : Data, t : Step |
+		-- can only access a data at time step t if
 		d in accesses.t implies {
+			-- (1) it already has access to date at time (t-1) or
 			(t not in SO/first and d in accesses.(t.prev)) or
+			-- (2) it creates the data itself or 
 			(t in SO/first and d in (creates + creates.^fields)) or
+			-- (3) another module calls operation on this and send the data as an argument
 			some m2 : Module - this | flows[m2, this, d, t]
 		}
 }
+
 pred flows[from, to : Module, d : Data, t : Step] {
 	(some o : SuccessOp {
 		t = o.post
@@ -30,7 +35,11 @@ pred flows[from, to : Module, d : Data, t : Step] {
 	})
 }
 
--- operations
+/**
+	* Operations
+	*/
+
+-- an operation is successful iff its receiver accepts it
 fun SuccessOp : set Op {
 	receiver.Module
 }
@@ -58,12 +67,15 @@ fun sends[m : Module, es : set Op]  : set Op {
 	sender.m & es
 }
 
+
 -- some helper predicates/functions
 pred triggeredBy[o : Op, t : set Op] {
 	some o.trigger & t
 }
+fun arg[d : Data] : set Data {
+	d + d.^fields
+}
 
--- propertiess
 sig CriticalData in Data {}
 sig GoodData, BadData in CriticalData {}
 fact DataFacts {
@@ -80,6 +92,9 @@ fact {
 	ProtectedModule in TrustedModule
 }
 
+/**
+	* generic security properties
+	*/
 pred Confidentiality {
 	no m : UntrustedModule, t : Step |
 		some m.accesses.t & GoodData
@@ -88,9 +103,5 @@ pred Confidentiality {
 pred Integrity {
 	no m : ProtectedModule, t : Step |
 		some m.accesses.t & BadData
-}
-
-fun arg[d : Data] : set Data {
-	d + d.^fields
 }
 

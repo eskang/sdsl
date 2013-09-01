@@ -13,6 +13,21 @@ Op = Struct.new(:name, :constraints, :parent, :child)
 
 class Mod
 
+  def findExport n
+    (exports.select { |e| e.name == n })[0]
+  end
+
+  def findInvoke n    
+    (invokes.select { |i| i.name == n})[0]
+  end
+
+  def deepclone 
+    Mod.new(self.name, self.exports.clone, self.invokes.clone,
+            self.assumptions.clone, self.stores.clone, 
+            self.creates.clone, self.extends.clone, 
+            self.isAbstract, self.isUniq)
+  end
+
   def to_alloy(ctx)
     # (s1, s2) in decls => sig s1 extends s2
     sigfacts = []

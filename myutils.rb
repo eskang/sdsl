@@ -334,9 +334,10 @@ class FuncApp < Expr
 end
 
 class OpExpr < Expr
+  
   def initialize(e)  
     if not e.is_a? Symbol
-      raise "WRONG!!!"
+      raise "Expected a symbol, but received #{e}"
     end
     @e = e
   end
@@ -440,11 +441,15 @@ class Join < Expr
   end
   def to_alloy(ctx=nil)
     e1 = @rel.to_alloy(ctx)
-    e2 = @col.to_alloy(ctx)
-    if e1 == "o"
-      if not UNIVERSAL_FIELDS.include? e2
+    e2 = @col.to_alloy(ctx)    
+
+    if not UNIVERSAL_FIELDS.include? e2
+      if e1 == "o"
         e2 = "(#{ctx[:op]} <: " + e2 + ")"
+      elsif e1 == "o.trigger"
+        e2 = "(#{ctx[:trigger]} <: " + e2 + ")"
       end
+
     end
     e1 + "." + e2
   end
@@ -724,17 +729,24 @@ class Pred2App < Formula
   end
 
   def to_alloy(ctx=nil)
-     @pred.to_alloy(ctx) + "[" + @a1.to_alloy(ctx) + "," + 
-      @a2.to_alloy(ctx) + "]"
+    pred = @pred.to_alloy(ctx)
+    a1 = @a1.to_alloy(ctx)
+    a2 = @a2.to_alloy(ctx)
+    
+    if pred == "triggeredBy"
+      ctx[:trigger] = a2.to_sym
+    end
+    pred + "[" + a1 + "," + a2 + "]"
   end  
 
   def rewrite(ctx)
-    Pred2App.new(@pred.rewrite(ctx), @a1.rewrite(ctx), @a2.rewrite(ctx))
+    pred = @pred.rewrite(ctx)
+    a1 = @a1.rewrite(ctx)
+    a2 = @a2.rewrite(ctx)
+    Pred2App.new(pred, a1, a2)
   end
 end
 
 def triggeredBy(t)
-#  if not t.is_a? Expr then t = op(t) end  
-#  some(intersect(trig,t))
-  Pred2App.new(e(:triggeredBy), e(:o), op(t)) 
+  Pred2App.new(e(:triggeredBy), e(:o), op(t))
 end
